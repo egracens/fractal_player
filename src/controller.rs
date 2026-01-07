@@ -1,6 +1,9 @@
 use log::info;
 
-use crate::{audio::AudioRuntime, state::AppState};
+use crate::{
+    audio::{is_mp3_path, AudioRuntime},
+    state::AppState,
+};
 
 pub struct Controller<'a> {
     pub state: &'a mut AppState,
@@ -9,6 +12,10 @@ pub struct Controller<'a> {
 
 impl<'a> Controller<'a> {
     pub fn load_file(&mut self, path: String) {
+        if !is_mp3_path(&path) {
+            log::warn!("Controller: non-mp3 selected; ignoring: {path}");
+            return;
+        }
         info!("Controller: load_file {path}");
         self.state.set_audio_file(path.clone());
         self.audio.load_file(path);

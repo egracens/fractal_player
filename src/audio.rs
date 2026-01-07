@@ -16,6 +16,14 @@ pub struct AudioRuntime {
     handle: Option<JoinHandle<()>>,
 }
 
+pub fn is_mp3_path(path: &str) -> bool {
+    std::path::Path::new(path)
+        .extension()
+        .and_then(|e| e.to_str())
+        .map(|ext| ext.eq_ignore_ascii_case("mp3"))
+        .unwrap_or(false)
+}
+
 impl AudioRuntime {
     pub fn new() -> Self {
         let (cmd_tx, cmd_rx) = flume::unbounded::<AudioCommand>();
