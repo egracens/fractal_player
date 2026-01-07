@@ -2,6 +2,7 @@
 
 mod app;
 mod audio;
+mod controller;
 mod state;
 mod ui;
 

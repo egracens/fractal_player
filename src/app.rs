@@ -1,6 +1,4 @@
-use log::warn;
-
-use crate::{audio::AudioRuntime, state::AppState, ui};
+use crate::{audio::AudioRuntime, controller::Controller, state::AppState, ui};
 
 #[derive(serde::Deserialize, serde::Serialize)]
 #[serde(default)]
@@ -32,43 +30,6 @@ impl FractalPlayer {
             audio: AudioRuntime::new(),
         }
     }
-
-    fn handle_open_file(&mut self) {
-        if let Some(path) = rfd::FileDialog::new().pick_file() {
-            let path_str = path.display().to_string();
-            self.state.set_audio_file(path_str.clone());
-            self.audio.load_file(path_str);
-        }
-    }
-
-    fn handle_play(&mut self) {
-        if !self.state.has_audio_file() {
-            return;
-        }
-
-        self.state.request_play();
-        self.audio.play();
-
-        warn!("Play!");
-    }
-
-    fn handle_pause(&mut self) {
-        if !self.state.has_audio_file() {
-            return;
-        }
-
-        self.state.request_pause();
-        self.audio.pause();
-    }
-
-    fn handle_stop(&mut self) {
-        if !self.state.has_audio_file() {
-            return;
-        }
-
-        self.state.request_stop();
-        self.audio.stop();
-    }
 }
 
 impl eframe::App for FractalPlayer {
@@ -82,23 +43,18 @@ impl eframe::App for FractalPlayer {
         ui::top_bar(ctx, &self.state, &mut actions);
         ui::central_panel(ctx, &self.state, &mut actions);
 
-        if actions.open_file {
-            self.handle_open_file();
-            ctx.request_repaint();
-        }
+        let mut controller = Controller {
+            state: &mut self.state,
+            audio: &mut self.audio,
+        };
 
-        if actions.play {
-            self.handle_play();
-            ctx.request_repaint();
-        }
-
-        if actions.pause {
-            self.handle_pause();
-            ctx.request_repaint();
-        }
-
-        if actions.stop {
-            self.handle_stop();
+        for event in actions.events.drain(..) {
+            match event {
+                ui::UiEvent::OpenFile(path) => controller.load_file(path),
+                ui::UiEvent::Play => controller.play(),
+                ui::UiEvent::Pause => controller.pause(),
+                ui::UiEvent::Stop => controller.stop(),
+            }
             ctx.request_repaint();
         }
     }

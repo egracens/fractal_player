@@ -4,10 +4,14 @@ use crate::state::AppState;
 
 #[derive(Default)]
 pub struct UiActions {
-    pub open_file: bool,
-    pub play: bool,
-    pub pause: bool,
-    pub stop: bool,
+    pub events: Vec<UiEvent>,
+}
+
+pub enum UiEvent {
+    OpenFile(String),
+    Play,
+    Pause,
+    Stop,
 }
 
 pub fn top_bar(ctx: &Context, _state: &AppState, actions: &mut UiActions) {
@@ -15,7 +19,9 @@ pub fn top_bar(ctx: &Context, _state: &AppState, actions: &mut UiActions) {
         egui::MenuBar::new().ui(ui, |ui| {
             ui.menu_button("File", |ui| {
                 if ui.button("Open…").clicked() {
-                    actions.open_file = true;
+                    if let Some(path) = pick_file_dialog() {
+                        actions.events.push(UiEvent::OpenFile(path));
+                    }
                     ui.close_kind(egui::UiKind::Menu);
                 }
                 if ui.button("Quit").clicked() {
@@ -32,7 +38,9 @@ pub fn central_panel(ctx: &Context, state: &AppState, actions: &mut UiActions) {
 
         ui.horizontal(|ui| {
             if ui.button("Open file…").clicked() {
-                actions.open_file = true;
+                if let Some(path) = pick_file_dialog() {
+                    actions.events.push(UiEvent::OpenFile(path));
+                }
             }
 
             match &state.last_file {
@@ -48,21 +56,21 @@ pub fn central_panel(ctx: &Context, state: &AppState, actions: &mut UiActions) {
                 .add_enabled(has_file, egui::Button::new("Play"))
                 .clicked()
             {
-                actions.play = true;
+                actions.events.push(UiEvent::Play);
             }
 
             if ui
                 .add_enabled(has_file, egui::Button::new("Pause"))
                 .clicked()
             {
-                actions.pause = true;
+                actions.events.push(UiEvent::Pause);
             }
 
             if ui
                 .add_enabled(has_file, egui::Button::new("Stop"))
                 .clicked()
             {
-                actions.stop = true;
+                actions.events.push(UiEvent::Stop);
             }
 
             if !has_file {
@@ -77,6 +85,12 @@ pub fn central_panel(ctx: &Context, state: &AppState, actions: &mut UiActions) {
             egui::warn_if_debug_build(ui);
         });
     });
+}
+
+fn pick_file_dialog() -> Option<String> {
+    rfd::FileDialog::new()
+        .pick_file()
+        .map(|path| path.display().to_string())
 }
 
 fn powered_by_egui_and_eframe(ui: &mut egui::Ui) {

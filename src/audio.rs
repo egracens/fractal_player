@@ -59,10 +59,14 @@ impl Drop for AudioRuntime {
 
 fn audio_worker(rx: Receiver<AudioCommand>) {
     while let Ok(cmd) = rx.recv() {
-        log::info!("audio command: {:?}", cmd);
-
-        if matches!(cmd, AudioCommand::Stop) {
-            break;
+        match cmd {
+            AudioCommand::LoadFile(path) => log::info!("audio: load file {path}"),
+            AudioCommand::Play => log::info!("audio: play"),
+            AudioCommand::Pause => log::info!("audio: pause"),
+            AudioCommand::Stop => {
+                log::info!("audio: stop");
+                break;
+            }
         }
 
         // Placeholder work to illustrate threading without real audio I/O.
