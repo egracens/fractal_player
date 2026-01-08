@@ -89,7 +89,7 @@ pub fn central_panel(ctx: &Context, state: &AppState, actions: &mut UiActions) {
 
 fn pick_file_dialog() -> Option<String> {
     rfd::FileDialog::new()
-        .add_filter("MP3 audio", &["mp3"])
+        .add_filter("Audio", &["mp3", "flac"])
         .pick_file()
         .map(|path| path.display().to_string())
 }

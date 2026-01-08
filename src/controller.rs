@@ -1,7 +1,7 @@
 use log::info;
 
 use crate::{
-    audio::{is_mp3_path, AudioRuntime},
+    audio::{is_audio_path, AudioRuntime},
     state::AppState,
 };
 
@@ -12,8 +12,8 @@ pub struct Controller<'a> {
 
 impl<'a> Controller<'a> {
     pub fn load_file(&mut self, path: String) {
-        if !is_mp3_path(&path) {
-            log::warn!("Controller: non-mp3 selected; ignoring: {path}");
+        if !is_audio_path(&path) {
+            log::warn!("Controller: unsupported audio selected; ignoring: {path}");
             return;
         }
         info!("Controller: load_file {path}");
