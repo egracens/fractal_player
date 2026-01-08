@@ -12,7 +12,7 @@ impl Default for FractalPlayer {
     fn default() -> Self {
         Self {
             state: AppState::default(),
-            audio: AudioRuntime::new(),
+            audio: AudioRuntime::default(),
         }
     }
 }
@@ -25,16 +25,15 @@ impl FractalPlayer {
             AppState::default()
         };
 
-        Self {
-            state,
-            audio: AudioRuntime::new(),
-        }
+        let audio = AudioRuntime::new(state.last_file.clone());
+
+        Self { state, audio }
     }
 }
 
 impl eframe::App for FractalPlayer {
     fn save(&mut self, storage: &mut dyn eframe::Storage) {
-        eframe::set_value(storage, eframe::APP_KEY, self);
+        eframe::set_value(storage, eframe::APP_KEY, &self.state);
     }
 
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {

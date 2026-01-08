@@ -28,7 +28,7 @@ pub struct AudioRuntime {
 }
 
 impl AudioRuntime {
-    pub fn new() -> Self {
+    pub fn new(initial_track: Option<String>) -> Self {
         let (cmd_tx, cmd_rx) = flume::unbounded::<AudioCommand>();
         let (progress_tx, progress_rx) = flume::bounded::<PlaybackSnapshot>(8);
 
@@ -37,11 +37,17 @@ impl AudioRuntime {
             .spawn(move || audio_worker(cmd_rx, progress_tx))
             .expect("failed to spawn audio thread");
 
-        Self {
+        let runtime = Self {
             cmd_tx,
             handle: Some(handle),
             progress_rx,
+        };
+
+        if let Some(path) = initial_track {
+            runtime.load_file(path);
         }
+
+        runtime
     }
 
     pub fn load_file(&self, path: String) {
@@ -58,6 +64,12 @@ impl AudioRuntime {
 
     pub fn stop(&self) {
         let _ = self.cmd_tx.send(AudioCommand::Stop);
+    }
+}
+
+impl Default for AudioRuntime {
+    fn default() -> Self {
+        Self::new(None)
     }
 }
 
