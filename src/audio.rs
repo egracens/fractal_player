@@ -1,9 +1,9 @@
 use std::fs::File;
 use std::thread::{self, JoinHandle};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use flume::{Receiver, Sender};
-use rodio::{Decoder, OutputStreamBuilder, Sink};
+use rodio::{Decoder, OutputStreamBuilder, Sink, Source};
 
 #[derive(Debug)]
 pub enum AudioCommand {
@@ -14,33 +14,33 @@ pub enum AudioCommand {
     Terminate,
 }
 
+#[derive(Clone, Debug, Default)]
+pub struct PlaybackSnapshot {
+    pub pos_secs: f64,
+    pub duration_secs: f64,
+    pub is_playing: bool,
+}
+
 pub struct AudioRuntime {
     cmd_tx: Sender<AudioCommand>,
     handle: Option<JoinHandle<()>>,
-}
-
-pub fn is_audio_path(path: &str) -> bool {
-    matches!(file_ext(path), Some(ext) if ext.eq_ignore_ascii_case("mp3") || ext.eq_ignore_ascii_case("flac"))
-}
-
-fn file_ext(path: &str) -> Option<&str> {
-    std::path::Path::new(path)
-        .extension()
-        .and_then(|e| e.to_str())
+    pub progress_rx: Receiver<PlaybackSnapshot>,
 }
 
 impl AudioRuntime {
     pub fn new() -> Self {
         let (cmd_tx, cmd_rx) = flume::unbounded::<AudioCommand>();
+        let (progress_tx, progress_rx) = flume::bounded::<PlaybackSnapshot>(8);
 
         let handle = thread::Builder::new()
             .name("audio-thread".into())
-            .spawn(move || audio_worker(cmd_rx))
+            .spawn(move || audio_worker(cmd_rx, progress_tx))
             .expect("failed to spawn audio thread");
 
         Self {
             cmd_tx,
             handle: Some(handle),
+            progress_rx,
         }
     }
 
@@ -70,7 +70,7 @@ impl Drop for AudioRuntime {
     }
 }
 
-fn audio_worker(rx: Receiver<AudioCommand>) {
+fn audio_worker(rx: Receiver<AudioCommand>, progress_tx: Sender<PlaybackSnapshot>) {
     let stream = match OutputStreamBuilder::open_default_stream() {
         Ok(stream) => stream,
         Err(err) => {
@@ -82,84 +82,141 @@ fn audio_worker(rx: Receiver<AudioCommand>) {
     let mixer = stream.mixer();
     let mut sink: Option<Sink> = None;
     let mut current_track: Option<String> = None;
+    let mut duration_secs: f64 = 0.0;
+    let mut elapsed_secs: f64 = 0.0;
+    let mut last_tick = Instant::now();
+    let mut playing = false;
 
-    while let Ok(cmd) = rx.recv() {
-        match cmd {
-            AudioCommand::LoadFile(path) => {
-                log::info!("audio: load file {path}");
-                current_track = Some(path.clone());
-                if let Some(s) = sink.take() {
-                    s.stop();
+    let send_progress = |pos, dur, playing| {
+        let snap = PlaybackSnapshot {
+            pos_secs: pos,
+            duration_secs: dur,
+            is_playing: playing,
+        };
+        let _ = progress_tx.send(snap);
+    };
+
+    let tick = |elapsed_secs: &mut f64,
+                duration_secs: f64,
+                last_tick: &mut Instant,
+                playing: bool,
+                progress_tx: &Sender<PlaybackSnapshot>| {
+        if playing {
+            let dt = last_tick.elapsed().as_secs_f64();
+            *elapsed_secs = (*elapsed_secs + dt).min(duration_secs.max(0.0));
+            *last_tick = Instant::now();
+            let _ = progress_tx.send(PlaybackSnapshot {
+                pos_secs: *elapsed_secs,
+                duration_secs,
+                is_playing: true,
+            });
+        }
+    };
+
+    let timeout = Duration::from_millis(200);
+
+    loop {
+        match rx.recv_timeout(timeout) {
+            Ok(cmd) => {
+                // update elapsed before handling command if playing
+                if playing {
+                    let dt = last_tick.elapsed().as_secs_f64();
+                    elapsed_secs = (elapsed_secs + dt).min(duration_secs.max(0.0));
+                    last_tick = Instant::now();
                 }
-                sink = load_sink(mixer, &path).ok();
-            }
-            AudioCommand::Play => {
-                log::info!("audio: play");
-                if let Some(s) = sink.as_ref() {
-                    s.play();
+
+                match cmd {
+                    AudioCommand::LoadFile(path) => {
+                        log::info!("audio: load file {path}");
+                        current_track = Some(path.clone());
+                        elapsed_secs = 0.0;
+                        duration_secs = 0.0;
+                        playing = false;
+                        last_tick = Instant::now();
+                        if let Some(s) = sink.take() {
+                            s.stop();
+                        }
+                        match load_sink(mixer, &path) {
+                            Ok((new_sink, dur_opt)) => {
+                                duration_secs = dur_opt.unwrap_or(0.0);
+                                sink = Some(new_sink);
+                            }
+                            Err(err) => log::warn!("audio: failed to load {path}: {err}"),
+                        }
+                        send_progress(elapsed_secs, duration_secs, playing);
+                    }
+                    AudioCommand::Play => {
+                        log::info!("audio: play");
+                        if let Some(s) = sink.as_ref() {
+                            playing = true;
+                            last_tick = Instant::now();
+                            s.play();
+                            send_progress(elapsed_secs, duration_secs, playing);
+                        }
+                    }
+                    AudioCommand::Pause => {
+                        log::info!("audio: pause");
+                        if let Some(s) = sink.as_ref() {
+                            playing = false;
+                            s.pause();
+                            send_progress(elapsed_secs, duration_secs, playing);
+                        }
+                    }
+                    AudioCommand::Stop => {
+                        log::info!("audio: stop");
+                        if let Some(track) = current_track.clone() {
+                            elapsed_secs = 0.0;
+                            playing = false;
+                            last_tick = Instant::now();
+                            let (new_sink, dur_opt) = load_sink_on_position(Duration::ZERO, track, mixer);
+                            sink = new_sink;
+                            duration_secs = dur_opt.unwrap_or(0.0);
+                            send_progress(elapsed_secs, duration_secs, playing);
+                        }
+                    }
+                    AudioCommand::Terminate => {
+                        log::info!("audio: terminate");
+                        if let Some(s) = sink.take() {
+                            s.stop();
+                        }
+                        send_progress(elapsed_secs, duration_secs, false);
+                        break;
+                    }
                 }
             }
-            AudioCommand::Pause => {
-                log::info!("audio: pause");
-                if let Some(s) = sink.as_ref() {
-                    s.pause();
-                }
+            Err(flume::RecvTimeoutError::Timeout) => {
+                tick(&mut elapsed_secs, duration_secs, &mut last_tick, playing, &progress_tx);
             }
-            AudioCommand::Stop => {
-                log::info!("audio: stop");
-                if let Some(track) = current_track.clone() {
-                    sink = seek_or_load_on_position(Duration::ZERO, sink, track, mixer);
-                }
-            }
-            AudioCommand::Terminate => {
-                log::info!("audio: terminate");
-                if let Some(s) = sink.take() {
-                    s.stop();
-                }
-                break;
-            }
+            Err(flume::RecvTimeoutError::Disconnected) => break,
         }
     }
-}
-
-fn seek_or_load_on_position(
-    pos: Duration,
-    sink: Option<Sink>,
-    track: String,
-    mixer: &rodio::mixer::Mixer,
-) -> Option<Sink> {
-    if seek(pos, sink.as_ref()).is_ok() {
-        return sink;
-    }
-    load_sink_on_position(pos, track, mixer)
-}
-
-fn seek(pos: Duration, sink: Option<&Sink>) -> Result<(), ()> {
-    let s = sink.ok_or(())?;
-    s.try_seek(pos).map_err(|e| {
-        log::warn!("audio: failed to seek: {e}");
-    })?;
-    s.pause();
-    Ok(())
 }
 
 fn load_sink_on_position(
     pos: Duration,
     track: String,
     mixer: &rodio::mixer::Mixer,
-) -> Option<Sink> {
-    let new_sink = load_sink(mixer, &track).ok()?;
-    if pos > Duration::ZERO {
-        let _ = new_sink.try_seek(pos);
+) -> (Option<Sink>, Option<f64>) {
+    match load_sink(mixer, &track) {
+        Ok((sink, dur_opt)) => {
+            if pos > Duration::ZERO {
+                let _ = sink.try_seek(pos);
+            }
+            (Some(sink), dur_opt)
+        }
+        Err(err) => {
+            log::warn!("audio: failed to reset {track}: {err}");
+            (None, None)
+        }
     }
-    Some(new_sink)
 }
 
-fn load_sink(mixer: &rodio::mixer::Mixer, path: &str) -> Result<Sink, String> {
+fn load_sink(mixer: &rodio::mixer::Mixer, path: &str) -> Result<(Sink, Option<f64>), String> {
     let file = File::open(path).map_err(|e| e.to_string())?;
-    let source = Decoder::try_from(file).map_err(|e| e.to_string())?;
+    let decoder = Decoder::try_from(file).map_err(|e| e.to_string())?;
+    let duration_opt = decoder.total_duration().map(|d| d.as_secs_f64());
     let sink = Sink::connect_new(mixer);
     sink.pause();
-    sink.append(source);
-    Ok(sink)
+    sink.append(decoder);
+    Ok((sink, duration_opt))
 }

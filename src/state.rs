@@ -3,6 +3,9 @@
 pub struct AppState {
     pub last_file: Option<String>,
     pub is_playing: bool,
+
+    pub playback_pos_secs: f32,
+    pub playback_duration_secs: f32,
 }
 
 impl AppState {

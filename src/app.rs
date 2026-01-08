@@ -38,6 +38,9 @@ impl eframe::App for FractalPlayer {
     }
 
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        const PROGRESS_FPS: u64 = 144;
+        const PROGRESS_FRAME_MS: u64 = 1000 / PROGRESS_FPS;
+
         let mut actions = ui::UiActions::default();
 
         ui::top_bar(ctx, &self.state, &mut actions);
@@ -57,5 +60,9 @@ impl eframe::App for FractalPlayer {
             }
             ctx.request_repaint();
         }
+
+        controller.poll_playback_progress();
+
+        ctx.request_repaint_after(std::time::Duration::from_millis(PROGRESS_FRAME_MS));
     }
 }

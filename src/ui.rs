@@ -78,6 +78,22 @@ pub fn central_panel(ctx: &Context, state: &AppState, actions: &mut UiActions) {
             }
         });
 
+        ui.add_space(8.0);
+        ui.horizontal(|ui| {
+            let dur = state.playback_duration_secs.max(0.001);
+            let frac = (state.playback_pos_secs / dur).clamp(0.0, 1.0);
+            ui.label("Progress:");
+            ui.add(
+                egui::ProgressBar::new(frac)
+                    .show_percentage()
+                    .desired_width(200.0),
+            );
+            ui.label(format!(
+                "{:.1}s / {:.1}s",
+                state.playback_pos_secs, state.playback_duration_secs
+            ));
+        });
+
         ui.separator();
 
         ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui| {
