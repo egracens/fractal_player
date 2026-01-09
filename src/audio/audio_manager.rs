@@ -111,10 +111,17 @@ fn run_playback_thread(
     }
 
     loop {
-        if let Ok(cmd) = rx.try_recv() {
-            let should_exit = matches!(cmd, AudioCommand::Terminate);
-            loop_state.handle_command(cmd);
-            if should_exit {
+        match rx.recv() {
+            Ok(cmd) => {
+                let should_exit = matches!(cmd, AudioCommand::Terminate);
+                loop_state.handle_command(cmd);
+
+                if should_exit {
+                    break;
+                }
+            }
+            Err(_) => {
+                log::warn!("audio palyback thread: channel closed");
                 break;
             }
         }
