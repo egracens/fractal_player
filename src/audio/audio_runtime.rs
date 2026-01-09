@@ -99,7 +99,13 @@ fn run_playback_thread(
 
     loop {
         match rx.recv_timeout(timeout) {
-            Ok(cmd) => loop_state.handle_command(cmd),
+            Ok(cmd) => {
+                let should_exit = matches!(cmd, AudioCommand::Terminate);
+                loop_state.handle_command(cmd);
+                if should_exit {
+                    break;
+                }
+            }
             Err(flume::RecvTimeoutError::Timeout) => loop_state.tick(),
             Err(flume::RecvTimeoutError::Disconnected) => break,
         }
