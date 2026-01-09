@@ -1,8 +1,8 @@
-use crate::{app_state::AppState, audio::AudioRuntime};
+use crate::{app_state::AppState, audio::AudioManager};
 
 pub struct Controller<'a> {
     pub state: &'a mut AppState,
-    pub audio: &'a mut AudioRuntime,
+    pub audio: &'a mut AudioManager,
 }
 
 impl<'a> Controller<'a> {

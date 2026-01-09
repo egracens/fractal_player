@@ -1,15 +1,15 @@
 use std::fs::File;
 use std::time::Duration;
 
-use flume::{Receiver, Sender};
+use flume::Sender;
 use rodio::{Decoder, OutputStreamBuilder, Sink, Source};
 
 use crate::audio::{
-    AnalyzerBins, AudioCommand, FFTProcessor, PlaybackSnapshot, PlaybackTracker, SampleConsumer,
-    SampleFanout, SpectrogramBins,
+    AnalyzerBins, AudioCommand, FFT_SIZE, FFTProcessor, PlaybackSnapshot, PlaybackTracker,
+    SampleConsumer, SampleFanout, SpectrogramBins,
 };
 
-pub struct PlaybackLoop {
+pub struct AudioWorker {
     _stream: rodio::OutputStream,
     mixer: rodio::mixer::Mixer,
     sink: Option<Sink>,
@@ -20,7 +20,7 @@ pub struct PlaybackLoop {
     state_tx: Option<Sender<bool>>,
 }
 
-impl PlaybackLoop {
+impl AudioWorker {
     pub fn new(
         progress_tx: Sender<PlaybackSnapshot>,
         spectrogram_tx: Sender<SpectrogramBins>,
@@ -70,27 +70,27 @@ impl PlaybackLoop {
         }
     }
 
-    fn play(&mut self) {
+    fn play(&self) {
         if let Some(s) = self.sink.as_ref() {
             s.play();
         }
-        if let Some(tx) = self.state_tx.as_ref() {
+        if let Some(tx) = &self.state_tx {
             let _ = tx.send(true);
         }
     }
 
-    fn pause(&mut self) {
+    fn pause(&self) {
         if let Some(s) = self.sink.as_ref() {
             s.pause();
         }
-        if let Some(tx) = self.state_tx.as_ref() {
+        if let Some(tx) = &self.state_tx {
             let _ = tx.send(false);
         }
     }
 
     fn stop(&mut self) {
         if let Some(track) = self.current_track.clone() {
-            let (new_sink, dur_opt) = self.load_sink_on_position(Duration::ZERO, track);
+            let (new_sink, dur_opt) = self.load_sink_at_position(&track, Duration::ZERO);
             self.sink = new_sink;
             self.duration_secs = dur_opt.unwrap_or(0.0);
         }
@@ -100,15 +100,14 @@ impl PlaybackLoop {
         if let Some(s) = self.sink.take() {
             s.stop();
         }
-        self.state_tx = None;
     }
 
-    fn load_sink_on_position(
+    fn load_sink_at_position(
         &mut self,
+        track: &str,
         _pos: Duration,
-        track: String,
     ) -> (Option<Sink>, Option<f64>) {
-        match self.load_sink(&track) {
+        match self.load_sink(track) {
             Ok((sink, dur_opt)) => (Some(sink), dur_opt),
             Err(err) => {
                 log::warn!("audio: failed to reset {track}: {err}");
@@ -127,20 +126,20 @@ impl PlaybackLoop {
         let tracker = PlaybackTracker::new(sample_rate, duration_opt, self.progress_tx.clone());
         let fft_proc = FFTProcessor::new(
             channels,
-            AnalyzerBins::new(crate::audio::FFT_SIZE),
+            AnalyzerBins::new(FFT_SIZE),
             self.spectrogram_tx.clone(),
         );
 
         let consumers: Vec<Box<dyn SampleConsumer>> = vec![Box::new(tracker), Box::new(fft_proc)];
-        let (state_tx, state_rx): (Sender<bool>, Receiver<bool>) = flume::bounded(4);
+
+        let (state_tx, state_rx) = flume::bounded::<bool>(1);
         self.state_tx = Some(state_tx);
+
         let fanout = SampleFanout::with_state_channel(decoder, consumers, state_rx);
 
         let sink = Sink::connect_new(&self.mixer);
-
         sink.pause();
         sink.append(fanout);
-
         Ok((sink, duration_opt))
     }
 }

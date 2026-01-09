@@ -24,7 +24,7 @@ impl FFTProcessor {
 }
 
 impl SampleConsumer for FFTProcessor {
-    fn on_sample(&mut self, sample: f32, _is_playing: bool) {
+    fn on_sample(&mut self, sample: f32) {
         self.frame_accum.push(sample);
 
         if self.frame_accum.len() as u16 == self.channels {

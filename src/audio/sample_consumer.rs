@@ -37,6 +37,6 @@ where
 }
 
 pub trait SampleConsumer: Send {
-    fn on_sample(&mut self, sample: f32, is_playing: bool);
+    fn on_sample(&mut self, sample: f32);
     fn on_state_change(&mut self, _is_playing: bool) {}
 }

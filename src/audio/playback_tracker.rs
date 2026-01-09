@@ -2,43 +2,49 @@ use flume::Sender;
 
 use crate::audio::{PlaybackSnapshot, SampleConsumer};
 
-const PROGRESS_STRIDE_FRAMES: u32 = 1024;
+const PROGRESS_STRIDE_SECONDS: f64 = 0.1;
 
 pub struct PlaybackTracker {
     sample_rate: u32,
-    frames: u64,
+    frames_count_tracked: u64,
+    frames_per_stride: u64,
     duration_secs: Option<f64>,
     tx: Sender<PlaybackSnapshot>,
 }
 
 impl PlaybackTracker {
     pub fn new(sample_rate: u32, duration_secs: Option<f64>, tx: Sender<PlaybackSnapshot>) -> Self {
+        let frames_per_stride = (sample_rate as f64 * PROGRESS_STRIDE_SECONDS).round() as u64;
         Self {
             sample_rate,
-            frames: 0,
+            frames_count_tracked: 0,
+            frames_per_stride,
             duration_secs,
             tx,
         }
     }
 
     fn send_snapshot(&self, is_playing: bool) {
-        let pos_secs = self.frames as f64 / self.sample_rate as f64;
         let snapshot = PlaybackSnapshot {
-            pos_secs,
+            pos_secs: self.get_position_seconds(),
             duration_secs: self.duration_secs.unwrap_or(0.0),
             is_playing,
         };
 
         let _ = self.tx.send(snapshot);
     }
+
+    fn get_position_seconds(&self) -> f64 {
+        return self.frames_count_tracked as f64 / self.sample_rate as f64;
+    }
 }
 
 impl SampleConsumer for PlaybackTracker {
-    fn on_sample(&mut self, _sample: f32, is_playing: bool) {
-        self.frames = self.frames.saturating_add(1);
+    fn on_sample(&mut self, _sample: f32) {
+        self.frames_count_tracked = self.frames_count_tracked.saturating_add(1);
 
-        if (self.frames as u32) % PROGRESS_STRIDE_FRAMES == 0 {
-            self.send_snapshot(is_playing);
+        if self.frames_count_tracked % self.frames_per_stride == 0 {
+            self.send_snapshot(true);
         }
     }
 

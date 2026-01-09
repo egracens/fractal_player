@@ -1,13 +1,13 @@
 use crate::{
     app_state::AppState,
-    audio::AudioRuntime,
+    audio::AudioManager,
     controller::Controller,
     ui::{PlayerControls, Spectrogram, TopBar, UiActions, View},
 };
 
 pub struct FractalPlayer {
     state: AppState,
-    audio: AudioRuntime,
+    audio: AudioManager,
     views: Vec<Box<dyn View>>,
 }
 
@@ -16,7 +16,7 @@ impl FractalPlayer {
         let mut state: AppState = AppState::restore(cc.storage);
         state.init_runtime_fields();
 
-        let mut audio = AudioRuntime::new(state.last_file.clone());
+        let mut audio = AudioManager::new(state.last_file.clone());
         audio.spawn_playback_thread();
 
         let views: Vec<Box<dyn View>> = vec![

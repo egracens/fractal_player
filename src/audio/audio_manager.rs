@@ -4,7 +4,7 @@ use flume::{Receiver, Sender};
 
 use crate::audio::{AudioCommand, PlaybackSnapshot, SpectrogramBins};
 
-pub struct AudioRuntime {
+pub struct AudioManager {
     cmd_tx: Sender<AudioCommand>,
     playback_thread_handle: Option<JoinHandle<()>>,
     progress_rx: Receiver<PlaybackSnapshot>,
@@ -12,13 +12,17 @@ pub struct AudioRuntime {
     audio_file_path: Option<String>,
 }
 
-impl AudioRuntime {
+impl AudioManager {
     pub fn new(audio_file_path: Option<String>) -> Self {
+        let (cmd_tx, _) = flume::unbounded::<AudioCommand>();
+        let (_, progress_rx) = flume::bounded::<PlaybackSnapshot>(8);
+        let (_, spectrogram_rx) = flume::bounded::<SpectrogramBins>(32);
+
         Self {
-            cmd_tx: flume::unbounded::<AudioCommand>().0,
+            cmd_tx,
             playback_thread_handle: None,
-            progress_rx: flume::bounded::<PlaybackSnapshot>(8).1,
-            spectrogram_rx: flume::bounded::<SpectrogramBins>(32).1,
+            progress_rx,
+            spectrogram_rx,
             audio_file_path,
         }
     }
@@ -72,13 +76,13 @@ impl AudioRuntime {
     }
 }
 
-impl Default for AudioRuntime {
+impl Default for AudioManager {
     fn default() -> Self {
         Self::new(None)
     }
 }
 
-impl Drop for AudioRuntime {
+impl Drop for AudioManager {
     fn drop(&mut self) {
         let _ = self.cmd_tx.send(AudioCommand::Terminate);
 
@@ -94,8 +98,7 @@ fn run_playback_thread(
     spectrogram_tx: Sender<SpectrogramBins>,
     initial_track: Option<String>,
 ) {
-    let mut loop_state = match super::playback_loop::PlaybackLoop::new(progress_tx, spectrogram_tx)
-    {
+    let mut loop_state = match super::audio_worker::AudioWorker::new(progress_tx, spectrogram_tx) {
         Ok(loop_state) => loop_state,
         Err(err) => {
             log::warn!("audio: failed to init playback loop: {err}");
@@ -107,19 +110,13 @@ fn run_playback_thread(
         loop_state.handle_command(AudioCommand::LoadFile(path));
     }
 
-    let timeout = std::time::Duration::from_millis(200);
-
     loop {
-        match rx.recv_timeout(timeout) {
-            Ok(cmd) => {
-                let should_exit = matches!(cmd, AudioCommand::Terminate);
-                loop_state.handle_command(cmd);
-                if should_exit {
-                    break;
-                }
+        if let Ok(cmd) = rx.try_recv() {
+            let should_exit = matches!(cmd, AudioCommand::Terminate);
+            loop_state.handle_command(cmd);
+            if should_exit {
+                break;
             }
-            Err(flume::RecvTimeoutError::Timeout) => {}
-            Err(flume::RecvTimeoutError::Disconnected) => break,
         }
     }
 }

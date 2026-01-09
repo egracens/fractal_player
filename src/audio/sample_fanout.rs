@@ -1,8 +1,8 @@
 use std::time::Duration;
 
 use flume::Receiver;
-use rodio::cpal::Sample;
 use rodio::Source;
+use rodio::cpal::Sample;
 
 use crate::audio::{SampleConsumer, SampleProducer};
 
@@ -73,7 +73,7 @@ where
         let sample = self.inner.next_sample()?;
         let as_f32 = sample.to_float_sample();
         for consumer in self.consumers.iter_mut() {
-            consumer.on_sample(as_f32, self.is_playing);
+            consumer.on_sample(as_f32);
         }
         Some(as_f32)
     }
