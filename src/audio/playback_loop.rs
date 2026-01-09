@@ -1,11 +1,11 @@
 use std::fs::File;
 use std::time::Duration;
 
-use flume::Sender;
+use flume::{Receiver, Sender};
 use rodio::{Decoder, OutputStreamBuilder, Sink, Source};
 
 use crate::audio::{
-    AnalyzerBins, AudioCommand, FFT_SIZE, FFTProcessor, PlaybackSnapshot, PlaybackTracker,
+    AnalyzerBins, AudioCommand, FFTProcessor, PlaybackSnapshot, PlaybackTracker, SampleConsumer,
     SampleFanout, SpectrogramBins,
 };
 
@@ -17,6 +17,7 @@ pub struct PlaybackLoop {
     duration_secs: f64,
     progress_tx: Sender<PlaybackSnapshot>,
     spectrogram_tx: Sender<SpectrogramBins>,
+    state_tx: Option<Sender<bool>>,
 }
 
 impl PlaybackLoop {
@@ -36,6 +37,7 @@ impl PlaybackLoop {
             duration_secs: 0.0,
             progress_tx,
             spectrogram_tx,
+            state_tx: None,
         })
     }
 
@@ -72,11 +74,17 @@ impl PlaybackLoop {
         if let Some(s) = self.sink.as_ref() {
             s.play();
         }
+        if let Some(tx) = self.state_tx.as_ref() {
+            let _ = tx.send(true);
+        }
     }
 
     fn pause(&mut self) {
         if let Some(s) = self.sink.as_ref() {
             s.pause();
+        }
+        if let Some(tx) = self.state_tx.as_ref() {
+            let _ = tx.send(false);
         }
     }
 
@@ -92,6 +100,7 @@ impl PlaybackLoop {
         if let Some(s) = self.sink.take() {
             s.stop();
         }
+        self.state_tx = None;
     }
 
     fn load_sink_on_position(
@@ -118,14 +127,20 @@ impl PlaybackLoop {
         let tracker = PlaybackTracker::new(sample_rate, duration_opt, self.progress_tx.clone());
         let fft_proc = FFTProcessor::new(
             channels,
-            AnalyzerBins::new(FFT_SIZE),
+            AnalyzerBins::new(crate::audio::FFT_SIZE),
             self.spectrogram_tx.clone(),
         );
-        let fanout = SampleFanout::new(decoder, tracker, fft_proc);
+
+        let consumers: Vec<Box<dyn SampleConsumer>> = vec![Box::new(tracker), Box::new(fft_proc)];
+        let (state_tx, state_rx): (Sender<bool>, Receiver<bool>) = flume::bounded(4);
+        self.state_tx = Some(state_tx);
+        let fanout = SampleFanout::with_state_channel(decoder, consumers, state_rx);
 
         let sink = Sink::connect_new(&self.mixer);
+
         sink.pause();
         sink.append(fanout);
+
         Ok((sink, duration_opt))
     }
 }

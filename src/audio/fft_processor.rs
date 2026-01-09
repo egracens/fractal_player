@@ -1,6 +1,6 @@
 use flume::Sender;
 
-use crate::audio::{AnalyzerBins, SpectrogramBins};
+use crate::audio::{AnalyzerBins, SampleConsumer, SpectrogramBins};
 
 pub struct FFTProcessor {
     analyzer: AnalyzerBins,
@@ -21,18 +21,24 @@ impl FFTProcessor {
             tx,
         }
     }
+}
 
-    pub fn on_sample(&mut self, sample: f32) {
+impl SampleConsumer for FFTProcessor {
+    fn on_sample(&mut self, sample: f32, _is_playing: bool) {
         self.frame_accum.push(sample);
+
         if self.frame_accum.len() as u16 == self.channels {
             let mono = self.frame_accum.iter().sum::<f32>() / (self.channels as f32);
+
             self.frame_accum.clear();
             self.buffer.push(mono);
+
             if self.buffer.len() >= self.analyzer.fft_size() {
                 let slice = self
                     .analyzer
                     .analyze(&self.buffer[..self.analyzer.fft_size()]);
                 let _ = self.tx.send(slice);
+
                 self.buffer.clear();
             }
         }
