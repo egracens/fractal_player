@@ -1,6 +1,6 @@
 use eframe::Storage;
 
-use crate::audio::SpectrogramSlice;
+use crate::audio::SpectrogramBins;
 
 const DEFAULT_SPECTROGRAM_CAPACITY: usize = 200;
 
@@ -14,7 +14,7 @@ pub struct AppState {
     pub playback_duration_secs: f32,
 
     #[serde(skip)]
-    pub spectrogram: Vec<SpectrogramSlice>,
+    pub spectrogram: Vec<SpectrogramBins>,
     #[serde(skip)]
     pub spectrogram_capacity: usize,
 }
@@ -37,7 +37,7 @@ impl AppState {
         }
     }
 
-    pub fn push_spectrogram_slice(&mut self, slice: SpectrogramSlice) {
+    pub fn push_spectrogram_slice(&mut self, slice: SpectrogramBins) {
         if self.spectrogram.len() >= self.spectrogram_capacity {
             self.spectrogram.remove(0);
         }

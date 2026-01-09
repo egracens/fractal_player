@@ -2,13 +2,13 @@ use std::thread::{self, JoinHandle};
 
 use flume::{Receiver, Sender};
 
-use crate::audio::{AudioCommand, PlaybackSnapshot, SpectrogramSlice};
+use crate::audio::{AudioCommand, PlaybackSnapshot, SpectrogramBins};
 
 pub struct AudioRuntime {
     cmd_tx: Sender<AudioCommand>,
     playback_thread_handle: Option<JoinHandle<()>>,
     progress_rx: Receiver<PlaybackSnapshot>,
-    spectrogram_rx: Receiver<SpectrogramSlice>,
+    spectrogram_rx: Receiver<SpectrogramBins>,
     audio_file_path: Option<String>,
 }
 
@@ -18,7 +18,7 @@ impl AudioRuntime {
             cmd_tx: flume::unbounded::<AudioCommand>().0,
             playback_thread_handle: None,
             progress_rx: flume::bounded::<PlaybackSnapshot>(8).1,
-            spectrogram_rx: flume::bounded::<SpectrogramSlice>(32).1,
+            spectrogram_rx: flume::bounded::<SpectrogramBins>(32).1,
             audio_file_path,
         }
     }
@@ -31,7 +31,7 @@ impl AudioRuntime {
         let audio_file_path = self.audio_file_path.clone();
         let (cmd_tx, cmd_rx) = flume::unbounded::<AudioCommand>();
         let (progress_tx, progress_rx) = flume::bounded::<PlaybackSnapshot>(8);
-        let (spectrogram_tx, spectrogram_rx) = flume::bounded::<SpectrogramSlice>(32);
+        let (spectrogram_tx, spectrogram_rx) = flume::bounded::<SpectrogramBins>(32);
 
         self.cmd_tx = cmd_tx;
         self.progress_rx = progress_rx;
@@ -67,7 +67,7 @@ impl AudioRuntime {
         &self.progress_rx
     }
 
-    pub fn spectrogram(&self) -> &Receiver<SpectrogramSlice> {
+    pub fn spectrogram(&self) -> &Receiver<SpectrogramBins> {
         &self.spectrogram_rx
     }
 }
@@ -91,7 +91,7 @@ impl Drop for AudioRuntime {
 fn run_playback_thread(
     rx: Receiver<AudioCommand>,
     progress_tx: Sender<PlaybackSnapshot>,
-    spectrogram_tx: Sender<SpectrogramSlice>,
+    spectrogram_tx: Sender<SpectrogramBins>,
     initial_track: Option<String>,
 ) {
     let mut loop_state = match super::playback_loop::PlaybackLoop::new(progress_tx, spectrogram_tx)
@@ -118,7 +118,7 @@ fn run_playback_thread(
                     break;
                 }
             }
-            Err(flume::RecvTimeoutError::Timeout) => loop_state.tick(),
+            Err(flume::RecvTimeoutError::Timeout) => {}
             Err(flume::RecvTimeoutError::Disconnected) => break,
         }
     }

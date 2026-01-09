@@ -2,7 +2,7 @@ use egui::Context;
 
 use crate::app_state::AppState;
 
-use super::{helpers::pick_file_dialog, UiActions, UiEvent, View};
+use super::{UiActions, UiEvent, View, helpers::pick_file_dialog};
 
 pub struct PlayerControls;
 
@@ -74,7 +74,6 @@ impl View for PlayerControls {
                     state.playback_pos_secs, state.playback_duration_secs
                 ));
             });
-
         });
     }
 }

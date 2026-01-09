@@ -1,6 +1,6 @@
 pub mod helpers;
-pub mod spectrogram;
 pub mod player_controls;
+pub mod spectrogram;
 pub mod top_bar;
 
 pub use player_controls::PlayerControls;

@@ -55,7 +55,8 @@ impl eframe::App for FractalPlayer {
 
         controller.handle_ui_events(actions.events.drain(..), ctx);
 
-        controller.poll_playback();
+        controller.poll_playback_progress();
+        controller.poll_spectrogram();
 
         ctx.request_repaint_after(std::time::Duration::from_millis(PROGRESS_FRAME_MS));
     }

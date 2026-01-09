@@ -1,6 +1,14 @@
 mod audio_runtime;
+mod fft_analyzer;
+mod fft_processor;
 mod playback_loop;
+mod playback_tracker;
+mod sample_fanout;
 pub use audio_runtime::AudioRuntime;
+pub use fft_analyzer::{AnalyzerBins, FFT_SIZE, SpectrogramBins, SpectrogramSlice};
+pub use fft_processor::FFTProcessor;
+pub use playback_tracker::PlaybackTracker;
+pub use sample_fanout::SampleFanout;
 
 #[derive(Debug)]
 pub enum AudioCommand {
@@ -16,15 +24,4 @@ pub struct PlaybackSnapshot {
     pub pos_secs: f64,
     pub duration_secs: f64,
     pub is_playing: bool,
-}
-
-#[derive(Clone, Copy, Debug, Default)]
-pub struct SpectrogramSlice {
-    pub bins: [f32; 32],
-}
-
-impl SpectrogramSlice {
-    pub fn new(bins: [f32; 32]) -> Self {
-        Self { bins }
-    }
 }
