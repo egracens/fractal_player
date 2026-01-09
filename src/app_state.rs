@@ -1,5 +1,9 @@
 use eframe::Storage;
 
+use crate::audio::SpectrogramSlice;
+
+const DEFAULT_SPECTROGRAM_CAPACITY: usize = 200;
+
 #[derive(serde::Deserialize, serde::Serialize, Default)]
 #[serde(default)]
 pub struct AppState {
@@ -8,6 +12,11 @@ pub struct AppState {
 
     pub playback_pos_secs: f32,
     pub playback_duration_secs: f32,
+
+    #[serde(skip)]
+    pub spectrogram: Vec<SpectrogramSlice>,
+    #[serde(skip)]
+    pub spectrogram_capacity: usize,
 }
 
 impl AppState {
@@ -17,6 +26,22 @@ impl AppState {
         } else {
             AppState::default()
         }
+    }
+
+    pub fn init_runtime_fields(&mut self) {
+        if self.spectrogram_capacity == 0 {
+            self.spectrogram_capacity = DEFAULT_SPECTROGRAM_CAPACITY;
+        }
+        if self.spectrogram.is_empty() {
+            self.spectrogram.reserve(self.spectrogram_capacity);
+        }
+    }
+
+    pub fn push_spectrogram_slice(&mut self, slice: SpectrogramSlice) {
+        if self.spectrogram.len() >= self.spectrogram_capacity {
+            self.spectrogram.remove(0);
+        }
+        self.spectrogram.push(slice);
     }
 
     pub fn has_audio_file(&self) -> bool {

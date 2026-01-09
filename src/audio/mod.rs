@@ -17,3 +17,14 @@ pub struct PlaybackSnapshot {
     pub duration_secs: f64,
     pub is_playing: bool,
 }
+
+#[derive(Clone, Copy, Debug, Default)]
+pub struct SpectrogramSlice {
+    pub bins: [f32; 32],
+}
+
+impl SpectrogramSlice {
+    pub fn new(bins: [f32; 32]) -> Self {
+        Self { bins }
+    }
+}

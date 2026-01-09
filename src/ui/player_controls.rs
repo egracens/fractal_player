@@ -2,17 +2,17 @@ use egui::Context;
 
 use crate::app_state::AppState;
 
-use super::{UiActions, UiEvent, View, helpers::pick_file_dialog};
+use super::{helpers::pick_file_dialog, UiActions, UiEvent, View};
 
-pub struct PlayerControlsView;
+pub struct PlayerControls;
 
-impl PlayerControlsView {
+impl PlayerControls {
     pub fn new() -> Self {
         Self
     }
 }
 
-impl View for PlayerControlsView {
+impl View for PlayerControls {
     fn ui(&self, ctx: &Context, state: &AppState, actions: &mut UiActions) {
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.heading("Fractal player");
@@ -74,6 +74,7 @@ impl View for PlayerControlsView {
                     state.playback_pos_secs, state.playback_duration_secs
                 ));
             });
+
         });
     }
 }

@@ -2,17 +2,17 @@ use egui::Context;
 
 use crate::app_state::AppState;
 
-use super::{UiActions, UiEvent, View, helpers::pick_file_dialog};
+use super::{helpers::pick_file_dialog, UiActions, UiEvent, View};
 
-pub struct TopBarView;
+pub struct TopBar;
 
-impl TopBarView {
+impl TopBar {
     pub fn new() -> Self {
         Self
     }
 }
 
-impl View for TopBarView {
+impl View for TopBar {
     fn ui(&self, ctx: &Context, _state: &AppState, actions: &mut UiActions) {
         egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
             egui::MenuBar::new().ui(ui, |ui| {

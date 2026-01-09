@@ -2,7 +2,7 @@ use crate::{
     app_state::AppState,
     audio::AudioRuntime,
     controller::Controller,
-    ui::{UiActions, View, player_controls::PlayerControlsView, top_bar::TopBarView},
+    ui::{PlayerControls, Spectrogram, TopBar, UiActions, View},
 };
 
 pub struct FractalPlayer {
@@ -13,14 +13,16 @@ pub struct FractalPlayer {
 
 impl FractalPlayer {
     pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
-        let state: AppState = AppState::restore(cc.storage);
+        let mut state: AppState = AppState::restore(cc.storage);
+        state.init_runtime_fields();
 
         let mut audio = AudioRuntime::new(state.last_file.clone());
         audio.spawn_playback_thread();
 
         let views: Vec<Box<dyn View>> = vec![
-            Box::new(TopBarView::new()),
-            Box::new(PlayerControlsView::new()),
+            Box::new(TopBar::new()),
+            Box::new(PlayerControls::new()),
+            Box::new(Spectrogram::new()),
         ];
 
         Self {
@@ -53,7 +55,7 @@ impl eframe::App for FractalPlayer {
 
         controller.handle_ui_events(actions.events.drain(..), ctx);
 
-        controller.poll_playback_progress();
+        controller.poll_playback();
 
         ctx.request_repaint_after(std::time::Duration::from_millis(PROGRESS_FRAME_MS));
     }

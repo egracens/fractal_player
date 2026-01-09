@@ -1,6 +1,11 @@
 pub mod helpers;
+pub mod spectrogram;
 pub mod player_controls;
 pub mod top_bar;
+
+pub use player_controls::PlayerControls;
+pub use spectrogram::Spectrogram;
+pub use top_bar::TopBar;
 
 use egui::Context;
 

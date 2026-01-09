@@ -2,9 +2,10 @@ use std::fs::File;
 use std::time::{Duration, Instant};
 
 use flume::Sender;
+use rand::Rng;
 use rodio::{Decoder, OutputStreamBuilder, Sink, Source};
 
-use crate::audio::{AudioCommand, PlaybackSnapshot};
+use crate::audio::{AudioCommand, PlaybackSnapshot, SpectrogramSlice};
 
 pub struct PlaybackLoop {
     _stream: rodio::OutputStream,
@@ -16,10 +17,14 @@ pub struct PlaybackLoop {
     last_tick: Instant,
     playing: bool,
     progress_tx: Sender<PlaybackSnapshot>,
+    spectrogram_tx: Sender<SpectrogramSlice>,
 }
 
 impl PlaybackLoop {
-    pub fn new(progress_tx: Sender<PlaybackSnapshot>) -> Result<Self, String> {
+    pub fn new(
+        progress_tx: Sender<PlaybackSnapshot>,
+        spectrogram_tx: Sender<SpectrogramSlice>,
+    ) -> Result<Self, String> {
         let stream = OutputStreamBuilder::open_default_stream()
             .map_err(|e| format!("failed to open output stream: {e}"))?;
         let mixer = stream.mixer().clone();
@@ -34,6 +39,7 @@ impl PlaybackLoop {
             last_tick: Instant::now(),
             playing: false,
             progress_tx,
+            spectrogram_tx,
         })
     }
 
@@ -51,6 +57,7 @@ impl PlaybackLoop {
 
     pub fn tick(&mut self) {
         self.advance_elapsed();
+        self.emit_dummy_spectrogram();
     }
 
     fn advance_elapsed(&mut self) {
@@ -73,6 +80,16 @@ impl PlaybackLoop {
         };
 
         let _ = self.progress_tx.send(snapshot);
+    }
+
+    fn emit_dummy_spectrogram(&self) {
+        let mut rng = rand::thread_rng();
+        let mut bins = [0.0f32; 32];
+        for v in bins.iter_mut() {
+            let raw: f32 = rng.gen_range(0.0..1.0);
+            *v = raw;
+        }
+        let _ = self.spectrogram_tx.send(SpectrogramSlice::new(bins));
     }
 
     fn load(&mut self, path: String) {

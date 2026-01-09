@@ -2,12 +2,13 @@ use std::thread::{self, JoinHandle};
 
 use flume::{Receiver, Sender};
 
-use crate::audio::{AudioCommand, PlaybackSnapshot};
+use crate::audio::{AudioCommand, PlaybackSnapshot, SpectrogramSlice};
 
 pub struct AudioRuntime {
     cmd_tx: Sender<AudioCommand>,
     playback_thread_handle: Option<JoinHandle<()>>,
     progress_rx: Receiver<PlaybackSnapshot>,
+    spectrogram_rx: Receiver<SpectrogramSlice>,
     audio_file_path: Option<String>,
 }
 
@@ -17,6 +18,7 @@ impl AudioRuntime {
             cmd_tx: flume::unbounded::<AudioCommand>().0,
             playback_thread_handle: None,
             progress_rx: flume::bounded::<PlaybackSnapshot>(8).1,
+            spectrogram_rx: flume::bounded::<SpectrogramSlice>(32).1,
             audio_file_path,
         }
     }
@@ -29,13 +31,17 @@ impl AudioRuntime {
         let audio_file_path = self.audio_file_path.clone();
         let (cmd_tx, cmd_rx) = flume::unbounded::<AudioCommand>();
         let (progress_tx, progress_rx) = flume::bounded::<PlaybackSnapshot>(8);
+        let (spectrogram_tx, spectrogram_rx) = flume::bounded::<SpectrogramSlice>(32);
 
         self.cmd_tx = cmd_tx;
         self.progress_rx = progress_rx;
+        self.spectrogram_rx = spectrogram_rx;
 
         let handle = thread::Builder::new()
             .name("audio-thread".into())
-            .spawn(move || run_playback_thread(cmd_rx, progress_tx, audio_file_path))
+            .spawn(move || {
+                run_playback_thread(cmd_rx, progress_tx, spectrogram_tx, audio_file_path)
+            })
             .expect("failed to spawn audio thread");
 
         self.playback_thread_handle = Some(handle);
@@ -60,6 +66,10 @@ impl AudioRuntime {
     pub fn progress(&self) -> &Receiver<PlaybackSnapshot> {
         &self.progress_rx
     }
+
+    pub fn spectrogram(&self) -> &Receiver<SpectrogramSlice> {
+        &self.spectrogram_rx
+    }
 }
 
 impl Default for AudioRuntime {
@@ -81,9 +91,11 @@ impl Drop for AudioRuntime {
 fn run_playback_thread(
     rx: Receiver<AudioCommand>,
     progress_tx: Sender<PlaybackSnapshot>,
+    spectrogram_tx: Sender<SpectrogramSlice>,
     initial_track: Option<String>,
 ) {
-    let mut loop_state = match super::playback_loop::PlaybackLoop::new(progress_tx) {
+    let mut loop_state = match super::playback_loop::PlaybackLoop::new(progress_tx, spectrogram_tx)
+    {
         Ok(loop_state) => loop_state,
         Err(err) => {
             log::warn!("audio: failed to init playback loop: {err}");

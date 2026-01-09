@@ -51,11 +51,22 @@ impl<'a> Controller<'a> {
         self.audio.stop();
     }
 
-    pub fn poll_playback_progress(&mut self) {
+    pub fn poll_playback(&mut self) {
+        self.poll_playback_progress();
+        self.poll_spectrogram();
+    }
+
+    fn poll_playback_progress(&mut self) {
         while let Ok(snap) = self.audio.progress().try_recv() {
             self.state.is_playing = snap.is_playing;
             self.state.playback_pos_secs = snap.pos_secs as f32;
             self.state.playback_duration_secs = snap.duration_secs as f32;
+        }
+    }
+
+    fn poll_spectrogram(&mut self) {
+        while let Ok(slice) = self.audio.spectrogram().try_recv() {
+            self.state.push_spectrogram_slice(slice);
         }
     }
 }
