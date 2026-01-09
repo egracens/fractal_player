@@ -6,7 +6,7 @@ mod playback_tracker;
 mod sample_consumer;
 mod sample_fanout;
 pub use audio_manager::AudioManager;
-pub use fft_analyzer::{AnalyzerBins, FFT_SIZE, SpectrogramBins, SpectrogramSlice};
+pub use fft_analyzer::{DefaultAnalyzer, SpectrogramBins, SpectrogramSlice};
 pub use fft_processor::FFTProcessor;
 pub use playback_tracker::PlaybackTracker;
 pub use sample_consumer::{SampleConsumer, SampleProducer};

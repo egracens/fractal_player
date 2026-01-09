@@ -16,7 +16,7 @@ where
     buffer: Vec<f32>,
     frame_accum: Vec<f32>,
     channels: u16,
-    fft_size: usize,
+    window_size: usize,
 }
 
 impl<S> AnalyzingSource<S>
@@ -25,16 +25,16 @@ where
     S::Item: Sample,
 {
     pub fn new(inner: S, fft: FFTAnalyzer, spectrogram_tx: Sender<SpectrogramBins>) -> Self {
-        let fft_size = fft.fft_size();
+        let window_size = fft.window_size();
         let channels = inner.channels().max(1);
         Self {
             inner,
             fft,
             spectrogram_tx,
-            buffer: Vec::with_capacity(fft_size),
+            buffer: Vec::with_capacity(window_size),
             frame_accum: Vec::with_capacity(channels as usize),
             channels,
-            fft_size,
+            window_size,
         }
     }
 }
@@ -57,8 +57,8 @@ where
             self.frame_accum.clear();
 
             self.buffer.push(mono);
-            if self.buffer.len() >= self.fft_size {
-                let slice = self.fft.analyze(&self.buffer[..self.fft_size]);
+            if self.buffer.len() >= self.window_size {
+                let slice = self.fft.analyze(&self.buffer[..self.window_size]);
                 let _ = self.spectrogram_tx.send(slice);
                 self.buffer.clear();
             }

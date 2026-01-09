@@ -2,7 +2,6 @@ use std::sync::Arc;
 
 use rustfft::{Fft, FftPlanner, num_complex::Complex};
 
-pub const FFT_SIZE: usize = 1024;
 pub const SPECTROGRAM_BINS: usize = 256;
 
 #[derive(Clone, Copy, Debug)]
@@ -11,7 +10,7 @@ pub struct SpectrogramSlice<const N: usize = SPECTROGRAM_BINS> {
 }
 
 pub type SpectrogramBins = SpectrogramSlice<SPECTROGRAM_BINS>;
-pub type AnalyzerBins = FFTAnalyzer<SPECTROGRAM_BINS>;
+pub type DefaultAnalyzer = FFTAnalyzer<SPECTROGRAM_BINS>;
 
 impl<const N: usize> Default for SpectrogramSlice<N> {
     fn default() -> Self {
@@ -20,7 +19,7 @@ impl<const N: usize> Default for SpectrogramSlice<N> {
 }
 
 pub struct FFTAnalyzer<const N: usize = SPECTROGRAM_BINS> {
-    fft_size: usize,
+    window_size: usize,
     fft: Arc<dyn Fft<f32>>,
     scratch: Vec<Complex<f32>>,
     buffer: Vec<Complex<f32>>,
@@ -28,15 +27,15 @@ pub struct FFTAnalyzer<const N: usize = SPECTROGRAM_BINS> {
 }
 
 impl<const N: usize> FFTAnalyzer<N> {
-    pub fn new(fft_size: usize) -> Self {
+    pub fn new(window_size: usize) -> Self {
         let mut planner = FftPlanner::new();
-        let fft = planner.plan_fft_forward(fft_size);
+        let fft = planner.plan_fft_forward(window_size);
         let scratch = vec![Complex::ZERO; fft.get_inplace_scratch_len()];
-        let buffer = vec![Complex::ZERO; fft_size];
-        let window = hann_window(fft_size);
+        let buffer = vec![Complex::ZERO; window_size];
+        let window = hann_window(window_size);
 
         Self {
-            fft_size,
+            window_size,
             fft,
             scratch,
             buffer,
@@ -56,7 +55,7 @@ impl<const N: usize> FFTAnalyzer<N> {
             .process_with_scratch(&mut self.buffer, &mut self.scratch);
 
         // Magnitudes (first half) and bin downsample.
-        let half = self.fft_size / 2;
+        let half = self.window_size / 2;
         let mut bins = [0.0f32; N];
         let mut acc = vec![0.0f32; N];
         let mut counts = vec![0usize; N];
@@ -79,8 +78,8 @@ impl<const N: usize> FFTAnalyzer<N> {
         SpectrogramSlice { bins }
     }
 
-    pub fn fft_size(&self) -> usize {
-        self.fft_size
+    pub fn window_size(&self) -> usize {
+        self.window_size
     }
 }
 

@@ -5,8 +5,8 @@ use flume::Sender;
 use rodio::{Decoder, OutputStreamBuilder, Sink, Source};
 
 use crate::audio::{
-    AnalyzerBins, AudioCommand, FFT_SIZE, FFTProcessor, PlaybackSnapshot, PlaybackTracker,
-    SampleConsumer, SampleFanout, SpectrogramBins,
+    AudioCommand, DefaultAnalyzer, FFTProcessor, PlaybackSnapshot, PlaybackTracker, SampleConsumer,
+    SampleFanout, SpectrogramBins,
 };
 
 pub struct AudioWorker {
@@ -126,7 +126,7 @@ impl AudioWorker {
         let tracker = PlaybackTracker::new(sample_rate, duration_opt, self.progress_tx.clone());
         let fft_proc = FFTProcessor::new(
             channels,
-            AnalyzerBins::new(FFT_SIZE),
+            DefaultAnalyzer::new(1024),
             self.spectrogram_tx.clone(),
         );
 
