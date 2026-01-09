@@ -1,3 +1,5 @@
+use eframe::Storage;
+
 #[derive(serde::Deserialize, serde::Serialize, Default)]
 #[serde(default)]
 pub struct AppState {
@@ -9,6 +11,14 @@ pub struct AppState {
 }
 
 impl AppState {
+    pub fn restore(storage: Option<&dyn Storage>) -> AppState {
+        if let Some(storage) = storage {
+            eframe::get_value(storage, eframe::APP_KEY).unwrap_or_default()
+        } else {
+            AppState::default()
+        }
+    }
+
     pub fn has_audio_file(&self) -> bool {
         self.last_file.is_some()
     }
