@@ -3,7 +3,7 @@ use std::time::Duration;
 use flume::Sender;
 use rodio::{cpal::Sample, Source};
 
-use crate::audio::{AnalyzerBins, SpectrogramBins};
+use crate::audio::{AnalyzerBins, SpectrogramBins, SpectrogramSlice};
 
 pub struct AnalyzingSource<S>
 where
@@ -17,6 +17,7 @@ where
     frame_accum: Vec<f32>,
     channels: u16,
     window_size: usize,
+    sample_rate_hz: u32,
 }
 
 impl<S> AnalyzingSource<S>
@@ -27,6 +28,7 @@ where
     pub fn new(inner: S, fft: FFTAnalyzer, spectrogram_tx: Sender<SpectrogramBins>) -> Self {
         let window_size = fft.window_size();
         let channels = inner.channels().max(1);
+        let sample_rate_hz = inner.sample_rate();
         Self {
             inner,
             fft,
@@ -35,6 +37,7 @@ where
             frame_accum: Vec::with_capacity(channels as usize),
             channels,
             window_size,
+            sample_rate_hz,
         }
     }
 }
@@ -58,8 +61,14 @@ where
 
             self.buffer.push(mono);
             if self.buffer.len() >= self.window_size {
-                let slice = self.fft.analyze(&self.buffer[..self.window_size]);
+                let bins = self.fft.analyze(&self.buffer[..self.window_size]);
+                let slice = SpectrogramSlice {
+                    bins,
+                    sample_rate_hz: self.sample_rate_hz,
+                    window_size: self.window_size,
+                };
                 let _ = self.spectrogram_tx.send(slice);
+
                 self.buffer.clear();
             }
 

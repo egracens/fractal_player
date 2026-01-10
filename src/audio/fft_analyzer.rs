@@ -7,6 +7,8 @@ pub const SPECTROGRAM_BINS: usize = 256;
 #[derive(Clone, Copy, Debug)]
 pub struct SpectrogramSlice<const N: usize = SPECTROGRAM_BINS> {
     pub bins: [f32; N],
+    pub sample_rate_hz: u32,
+    pub window_size: usize,
 }
 
 pub type SpectrogramBins = SpectrogramSlice<SPECTROGRAM_BINS>;
@@ -14,7 +16,11 @@ pub type DefaultAnalyzer = FFTAnalyzer<SPECTROGRAM_BINS>;
 
 impl<const N: usize> Default for SpectrogramSlice<N> {
     fn default() -> Self {
-        Self { bins: [0.0; N] }
+        Self {
+            bins: [0.0; N],
+            sample_rate_hz: 44100, // Default sample rate
+            window_size: 1024,     // Default window size
+        }
     }
 }
 
@@ -43,7 +49,7 @@ impl<const N: usize> FFTAnalyzer<N> {
         }
     }
 
-    pub fn analyze(&mut self, samples: &[f32]) -> SpectrogramSlice<N> {
+    pub fn analyze(&mut self, samples: &[f32]) -> [f32; N] {
         // Copy & window into buffer, zero-pad if short.
         for (i, slot) in self.buffer.iter_mut().enumerate() {
             let s = samples.get(i).copied().unwrap_or(0.0);
@@ -75,7 +81,7 @@ impl<const N: usize> FFTAnalyzer<N> {
             *out = sum / n;
         }
 
-        SpectrogramSlice { bins }
+        bins
     }
 
     pub fn window_size(&self) -> usize {

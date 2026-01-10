@@ -128,6 +128,7 @@ impl AudioWorker {
             channels,
             DefaultAnalyzer::new(1024),
             self.spectrogram_tx.clone(),
+            sample_rate,
         );
 
         let consumers: Vec<Box<dyn SampleConsumer>> = vec![Box::new(tracker), Box::new(fft_proc)];
