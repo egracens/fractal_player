@@ -65,7 +65,7 @@ impl Spectrogram {
 
 impl View for Spectrogram {
     fn ui(&self, ctx: &Context, state: &AppState, _actions: &mut UiActions) {
-        egui::Window::new("Dummy spectrogram")
+        egui::Window::new("Spectrogram")
             .default_size([480.0, 260.0])
             .show(ctx, |ui| {
                 self.draw_latest_slice(ui, state);
