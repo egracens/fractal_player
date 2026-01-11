@@ -62,6 +62,3 @@ impl eframe::App for FractalPlayer {
         ctx.request_repaint_after(std::time::Duration::from_millis(PROGRESS_FRAME_MS));
     }
 }
-
-
-

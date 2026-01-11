@@ -24,6 +24,7 @@ eframe = { version = "0.32.3", default-features = false, features = [
 log = "0.4.27"
 rand = "0.8"
 rustfft = "6.1"
+bytemuck = "1.18"
 wgpu = { version = "25.0", features = ["vulkan", "gles"] }
 
 # You only need serde if you want app persistence:

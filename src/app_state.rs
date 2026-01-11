@@ -13,10 +13,18 @@ pub struct AppState {
     pub playback_pos_secs: f32,
     pub playback_duration_secs: f32,
 
+    pub fractal_type: FractalType,
+
     #[serde(skip)]
     pub spectrogram: Vec<SpectrogramBins>,
     #[serde(skip)]
     pub spectrogram_capacity: usize,
+}
+
+#[derive(serde::Deserialize, serde::Serialize, Default, Clone, Copy, PartialEq, Eq, Debug)]
+pub enum FractalType {
+    #[default]
+    Triangle,
 }
 
 impl AppState {

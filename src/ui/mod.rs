@@ -1,4 +1,5 @@
 pub mod fractal;
+pub mod fractal_callbacks;
 pub mod helpers;
 pub mod player_controls;
 pub mod spectrogram;

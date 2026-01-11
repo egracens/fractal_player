@@ -1332,6 +1332,7 @@ dependencies = [
 name = "fractal_player"
 version = "0.1.0"
 dependencies = [
+ "bytemuck",
  "eframe",
  "egui",
  "egui_plot",
