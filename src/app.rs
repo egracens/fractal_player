@@ -2,7 +2,7 @@ use crate::{
     app_state::AppState,
     audio::AudioManager,
     controller::Controller,
-    ui::{PlayerControls, Spectrogram, TopBar, UiActions, View},
+    ui::{Fractal, PlayerControls, Spectrogram, TopBar, UiActions, View},
 };
 
 pub struct FractalPlayer {
@@ -23,6 +23,7 @@ impl FractalPlayer {
             Box::new(TopBar::new()),
             Box::new(PlayerControls::new()),
             Box::new(Spectrogram::new()),
+            Box::new(Fractal::new()),
         ];
 
         Self {
@@ -61,3 +62,6 @@ impl eframe::App for FractalPlayer {
         ctx.request_repaint_after(std::time::Duration::from_millis(PROGRESS_FRAME_MS));
     }
 }
+
+
+

@@ -1,8 +1,10 @@
+pub mod fractal;
 pub mod helpers;
 pub mod player_controls;
 pub mod spectrogram;
 pub mod top_bar;
 
+pub use fractal::Fractal;
 pub use player_controls::PlayerControls;
 pub use spectrogram::Spectrogram;
 pub use top_bar::TopBar;
