@@ -25,6 +25,7 @@ pub struct AppState {
 pub enum FractalType {
     #[default]
     Triangle,
+    Aurora,
 }
 
 impl AppState {

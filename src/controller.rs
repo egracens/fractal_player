@@ -17,6 +17,9 @@ impl<'a> Controller<'a> {
                 crate::ui::UiEvent::Play => self.play(),
                 crate::ui::UiEvent::Pause => self.pause(),
                 crate::ui::UiEvent::Stop => self.stop(),
+                crate::ui::UiEvent::ChangeFractal(fractal_type) => {
+                    self.state.fractal_type = fractal_type;
+                }
             }
         }
         ctx.request_repaint();

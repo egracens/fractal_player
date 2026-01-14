@@ -5,6 +5,8 @@ pub mod player_controls;
 pub mod spectrogram;
 pub mod top_bar;
 
+use crate::app_state::FractalType;
+
 pub use fractal::Fractal;
 pub use player_controls::PlayerControls;
 pub use spectrogram::Spectrogram;
@@ -24,6 +26,7 @@ pub enum UiEvent {
     Play,
     Pause,
     Stop,
+    ChangeFractal(FractalType),
 }
 
 pub trait View {
