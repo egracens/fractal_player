@@ -3,7 +3,7 @@ use egui::{Context, Ui};
 use crate::{
     app_state::{AppState, FractalType},
     audio::SpectrogramBins,
-    ui::fractal_callbacks::{AuroraCallback, MandelbrotCallback, TriangleCallback},
+    ui::fractal_callbacks::{AuroraCallback, JuliaCallback, MandelbrotCallback, TriangleCallback},
 };
 
 use super::{UiActions, View};
@@ -39,6 +39,7 @@ impl Fractal {
                     ui.selectable_value(&mut selected_type, FractalType::Triangle, "Triangle");
                     ui.selectable_value(&mut selected_type, FractalType::Aurora, "Aurora");
                     ui.selectable_value(&mut selected_type, FractalType::Mandelbrot, "Mandelbrot");
+                    ui.selectable_value(&mut selected_type, FractalType::Julia, "Julia");
                 });
 
             // Send event if selection changed
@@ -76,6 +77,10 @@ impl Fractal {
             FractalType::Mandelbrot => eframe::egui_wgpu::Callback::new_paint_callback(
                 canvas_rect,
                 MandelbrotCallback::new(fft_data, current_time),
+            ),
+            FractalType::Julia => eframe::egui_wgpu::Callback::new_paint_callback(
+                canvas_rect,
+                JuliaCallback::new(fft_data, current_time),
             ),
         };
 
