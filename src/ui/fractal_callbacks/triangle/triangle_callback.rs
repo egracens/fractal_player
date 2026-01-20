@@ -11,16 +11,16 @@ use crate::ui::fractal_callbacks::common::*;
 // Center at (0,0), height of 1.5, base of ~1.732 (equilateral)
 const VERTICES: &[Vertex] = &[
     Vertex {
-        position: [0.0, 0.75],    // Top vertex
-        color: [1.0, 1.0, 1.0],  // White
+        position: [0.0, 0.75],  // Top vertex
+        color: [1.0, 1.0, 1.0], // White
     },
     Vertex {
         position: [-0.866, -0.75], // Bottom left
-        color: [1.0, 1.0, 1.0],  // White
+        color: [1.0, 1.0, 1.0],    // White
     },
     Vertex {
-        position: [0.866, -0.75],  // Bottom right
-        color: [1.0, 1.0, 1.0],  // White
+        position: [0.866, -0.75], // Bottom right
+        color: [1.0, 1.0, 1.0],   // White
     },
 ];
 
@@ -40,7 +40,10 @@ pub struct TriangleCallback {
 
 impl TriangleCallback {
     pub fn new(fft_data: SpectrogramBins, current_time: f64) -> Self {
-        Self { fft_data, current_time }
+        Self {
+            fft_data,
+            current_time,
+        }
     }
 
     /// Extract 3 frequency bands from FFT data
@@ -50,8 +53,8 @@ impl TriangleCallback {
 
         // Calculate average for each frequency band
         let low = bins[0..band_size].iter().sum::<f32>() / band_size as f32;
-        let mid = bins[band_size..2*band_size].iter().sum::<f32>() / band_size as f32;
-        let high = bins[2*band_size..].iter().sum::<f32>() / band_size as f32;
+        let mid = bins[band_size..2 * band_size].iter().sum::<f32>() / band_size as f32;
+        let high = bins[2 * band_size..].iter().sum::<f32>() / band_size as f32;
 
         // Amplify mid/high frequencies for better visibility, clamp to [0,1]
         [
@@ -96,19 +99,20 @@ impl CallbackTrait for TriangleCallback {
             });
 
             // Create bind group
-            let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                label: Some("Triangle Bind Group Layout"),
-                entries: &[wgpu::BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Uniform,
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
-                    },
-                    count: None,
-                }],
-            });
+            let bind_group_layout =
+                device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                    label: Some("Triangle Bind Group Layout"),
+                    entries: &[wgpu::BindGroupLayoutEntry {
+                        binding: 0,
+                        visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Buffer {
+                            ty: wgpu::BufferBindingType::Uniform,
+                            has_dynamic_offset: false,
+                            min_binding_size: None,
+                        },
+                        count: None,
+                    }],
+                });
 
             let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
                 label: Some("Triangle Bind Group"),
@@ -178,7 +182,11 @@ impl CallbackTrait for TriangleCallback {
         if let Some(resources) = callback_resources.get_mut::<TriangleResources>() {
             let bands = Self::extract_frequency_bands(&self.fft_data);
             let uniform_data = [bands[0], bands[1], bands[2], self.current_time as f32];
-            queue.write_buffer(&resources.uniform_buffer, 0, bytemuck::cast_slice(&[uniform_data]));
+            queue.write_buffer(
+                &resources.uniform_buffer,
+                0,
+                bytemuck::cast_slice(&[uniform_data]),
+            );
         }
 
         Vec::new()

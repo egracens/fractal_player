@@ -6,22 +6,19 @@ use wgpu::util::DeviceExt;
 use crate::audio::SpectrogramBins;
 
 #[derive(Clone)]
-pub struct AuroraResources {
-    pub background_pipeline: Arc<wgpu::RenderPipeline>,
-    pub ring_pipeline: Arc<wgpu::RenderPipeline>,
-    pub background_uniform_buffer: Arc<wgpu::Buffer>,
-    pub ring_uniform_buffer: Arc<wgpu::Buffer>,
-    pub background_bind_group: Arc<wgpu::BindGroup>,
-    pub ring_bind_group: Arc<wgpu::BindGroup>,
+pub struct MandelbrotResources {
+    pub pipeline: Arc<wgpu::RenderPipeline>,
+    pub uniform_buffer: Arc<wgpu::Buffer>,
+    pub bind_group: Arc<wgpu::BindGroup>,
 }
 
 #[derive(Clone)]
-pub struct AuroraCallback {
+pub struct MandelbrotCallback {
     pub fft_data: SpectrogramBins,
     pub current_time: f64,
 }
 
-impl AuroraCallback {
+impl MandelbrotCallback {
     pub fn new(fft_data: SpectrogramBins, current_time: f64) -> Self {
         Self {
             fft_data,
@@ -52,16 +49,16 @@ impl AuroraCallback {
             sum / (end - start) as f32
         };
 
-        // Proper frequency ranges based on musical perception
-        // Bass: 20-250 Hz (sub-bass + bass fundamentals)
+        // Frequency ranges based on musical perception
+        // Bass: 20-250 Hz
         let bass_start = freq_to_bin(20.0);
         let bass_end = freq_to_bin(250.0);
 
-        // Mids: 250-2000 Hz (fundamentals + lower harmonics)
+        // Mids: 250-2000 Hz
         let mid_start = bass_end;
         let mid_end = freq_to_bin(2000.0);
 
-        // Highs: 2000-20000 Hz (upper harmonics + presence)
+        // Highs: 2000-20000 Hz
         let high_start = mid_end;
         let high_end = freq_to_bin(20000.0);
 
@@ -70,8 +67,6 @@ impl AuroraCallback {
         let highs = average_bins(high_start, high_end);
 
         // Normalize and boost
-        // Bass has more energy naturally, so less boost needed
-        // Highs have less energy, so more boost needed
         [
             (bass * 2.0).clamp(0.0, 1.0),
             (mids * 3.0).clamp(0.0, 1.0),
@@ -81,32 +76,24 @@ impl AuroraCallback {
 
     fn prepare_shader(
         device: &wgpu::Device,
-        shader_source: &str,
-        shader_label: &str,
-        buffer_label: &str,
-        layout_label: &str,
-        bind_group_label: &str,
-        pipeline_label: &str,
-        pipeline_layout_label: &str,
-        blend_state: Option<wgpu::BlendState>,
     ) -> (
         Arc<wgpu::RenderPipeline>,
         Arc<wgpu::Buffer>,
         Arc<wgpu::BindGroup>,
     ) {
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-            label: Some(shader_label),
-            source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(shader_source)),
+            label: Some("Mandelbrot Shader"),
+            source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(include_str!("shader.wgsl"))),
         });
 
         let uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some(buffer_label),
+            label: Some("Mandelbrot Uniform Buffer"),
             contents: bytemuck::cast_slice(&[0.0f32; 4]),
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         });
 
         let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            label: Some(layout_label),
+            label: Some("Mandelbrot Bind Group Layout"),
             entries: &[wgpu::BindGroupLayoutEntry {
                 binding: 0,
                 visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
@@ -120,7 +107,7 @@ impl AuroraCallback {
         });
 
         let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some(bind_group_label),
+            label: Some("Mandelbrot Bind Group"),
             layout: &bind_group_layout,
             entries: &[wgpu::BindGroupEntry {
                 binding: 0,
@@ -129,13 +116,13 @@ impl AuroraCallback {
         });
 
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-            label: Some(pipeline_layout_label),
+            label: Some("Mandelbrot Pipeline Layout"),
             bind_group_layouts: &[&bind_group_layout],
             push_constant_ranges: &[],
         });
 
         let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            label: Some(pipeline_label),
+            label: Some("Mandelbrot Pipeline"),
             layout: Some(&pipeline_layout),
             vertex: wgpu::VertexState {
                 module: &shader,
@@ -149,7 +136,7 @@ impl AuroraCallback {
                 compilation_options: Default::default(),
                 targets: &[Some(wgpu::ColorTargetState {
                     format: wgpu::TextureFormat::Bgra8Unorm,
-                    blend: blend_state,
+                    blend: Some(wgpu::BlendState::REPLACE),
                     write_mask: wgpu::ColorWrites::ALL,
                 })],
             }),
@@ -180,7 +167,7 @@ impl AuroraCallback {
     }
 }
 
-impl CallbackTrait for AuroraCallback {
+impl CallbackTrait for MandelbrotCallback {
     fn prepare(
         &self,
         device: &wgpu::Device,
@@ -189,66 +176,24 @@ impl CallbackTrait for AuroraCallback {
         _egui_encoder: &mut wgpu::CommandEncoder,
         callback_resources: &mut CallbackResources,
     ) -> Vec<wgpu::CommandBuffer> {
-        if !callback_resources.contains::<AuroraResources>() {
-            let (background_pipeline, background_uniform_buffer, background_bind_group) =
-                Self::prepare_shader(
-                    device,
-                    include_str!("background.wgsl"),
-                    "Aurora Background Shader",
-                    "Aurora Background Uniform Buffer",
-                    "Aurora Background Bind Group Layout",
-                    "Aurora Background Bind Group",
-                    "Aurora Background Pipeline",
-                    "Aurora Background Pipeline Layout",
-                    Some(wgpu::BlendState::REPLACE),
-                );
+        if !callback_resources.contains::<MandelbrotResources>() {
+            let (pipeline, uniform_buffer, bind_group) = Self::prepare_shader(device);
 
-            let (ring_pipeline, ring_uniform_buffer, ring_bind_group) = Self::prepare_shader(
-                device,
-                include_str!("ring.wgsl"),
-                "Aurora Ring Shader",
-                "Aurora Ring Uniform Buffer",
-                "Aurora Ring Bind Group Layout",
-                "Aurora Ring Bind Group",
-                "Aurora Ring Pipeline",
-                "Aurora Ring Pipeline Layout",
-                Some(wgpu::BlendState {
-                    color: wgpu::BlendComponent {
-                        src_factor: wgpu::BlendFactor::SrcAlpha,
-                        dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
-                        operation: wgpu::BlendOperation::Add,
-                    },
-                    alpha: wgpu::BlendComponent {
-                        src_factor: wgpu::BlendFactor::One,
-                        dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
-                        operation: wgpu::BlendOperation::Add,
-                    },
-                }),
-            );
-
-            let resources = AuroraResources {
-                background_pipeline,
-                ring_pipeline,
-                background_uniform_buffer,
-                ring_uniform_buffer,
-                background_bind_group,
-                ring_bind_group,
+            let resources = MandelbrotResources {
+                pipeline,
+                uniform_buffer,
+                bind_group,
             };
 
             callback_resources.insert(resources);
         }
 
-        if let Some(resources) = callback_resources.get_mut::<AuroraResources>() {
+        if let Some(resources) = callback_resources.get_mut::<MandelbrotResources>() {
             let bands = Self::extract_frequency_bands(&self.fft_data);
             let uniform_data = [bands[0], bands[1], bands[2], self.current_time as f32];
 
             queue.write_buffer(
-                &resources.background_uniform_buffer,
-                0,
-                bytemuck::cast_slice(&[uniform_data]),
-            );
-            queue.write_buffer(
-                &resources.ring_uniform_buffer,
+                &resources.uniform_buffer,
                 0,
                 bytemuck::cast_slice(&[uniform_data]),
             );
@@ -263,9 +208,9 @@ impl CallbackTrait for AuroraCallback {
         render_pass: &mut wgpu::RenderPass<'static>,
         callback_resources: &CallbackResources,
     ) {
-        let resources: &AuroraResources = callback_resources
-            .get::<AuroraResources>()
-            .expect("Aurora resources not found");
+        let resources: &MandelbrotResources = callback_resources
+            .get::<MandelbrotResources>()
+            .expect("Mandelbrot resources not found");
 
         render_pass.set_scissor_rect(
             info.clip_rect.min.x as u32,
@@ -274,12 +219,8 @@ impl CallbackTrait for AuroraCallback {
             info.clip_rect.height() as u32,
         );
 
-        render_pass.set_pipeline(&resources.background_pipeline);
-        render_pass.set_bind_group(0, &*resources.background_bind_group, &[]);
-        render_pass.draw(0..4, 0..1);
-
-        render_pass.set_pipeline(&resources.ring_pipeline);
-        render_pass.set_bind_group(0, &*resources.ring_bind_group, &[]);
+        render_pass.set_pipeline(&resources.pipeline);
+        render_pass.set_bind_group(0, &*resources.bind_group, &[]);
         render_pass.draw(0..4, 0..1);
     }
 }

@@ -12,7 +12,12 @@ pub struct FFTProcessor {
 }
 
 impl FFTProcessor {
-    pub fn new(channels: u16, analyzer: DefaultAnalyzer, tx: Sender<SpectrogramBins>, sample_rate_hz: u32) -> Self {
+    pub fn new(
+        channels: u16,
+        analyzer: DefaultAnalyzer,
+        tx: Sender<SpectrogramBins>,
+        sample_rate_hz: u32,
+    ) -> Self {
         let window_size = analyzer.window_size();
 
         Self {
@@ -37,7 +42,9 @@ impl SampleConsumer for FFTProcessor {
             self.buffer.push(mono);
 
             if self.buffer.len() >= self.analyzer.window_size() {
-                let bins = self.analyzer.analyze(&self.buffer[..self.analyzer.window_size()]);
+                let bins = self
+                    .analyzer
+                    .analyze(&self.buffer[..self.analyzer.window_size()]);
                 let slice = SpectrogramSlice {
                     bins,
                     sample_rate_hz: self.sample_rate_hz,

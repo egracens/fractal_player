@@ -26,6 +26,7 @@ pub enum FractalType {
     #[default]
     Triangle,
     Aurora,
+    Mandelbrot,
 }
 
 impl AppState {

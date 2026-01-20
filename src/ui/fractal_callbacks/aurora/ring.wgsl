@@ -39,19 +39,34 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
     let highs = audio_data.z;
     let time = audio_data.w;
 
+    // Calculate polar coordinates
+    let offset = uv - center;
+    let angle = atan2(offset.y, offset.x) + 3.14159265359; // Normalize to 0 to 2π (eliminates discontinuity at π)
+
     // Ring properties modulated by audio
-    let ring_radius = 0.3 + bass * 0.2; // Inner radius varies with bass
-    let ring_width = 0.05 + mids * 0.1; // Ring width varies with mids
-    let ring_outer = ring_radius + ring_width;
+    let base_radius = 0.3;
+    let thickness = 0.05;
 
-    // Pulsing effect with time and highs
-    let pulse = sin(time * 3.0) * 0.1 * highs;
-    let inner_radius = ring_radius + pulse;
-    let outer_radius = ring_outer + pulse;
+    // Zigzag parameters
+    let num_edges = round(150.0); // Number of zigzags (8-20 edges, MUST be integer for seamless loop)
+    let zigzag_amplitude = bass * 0.008; // How far zigzags push in/out (based on bass)
 
-    // Create ring mask
-    let ring_mask = smoothstep(inner_radius - 0.01, inner_radius, dist) *
-                    (1.0 - smoothstep(outer_radius - 0.01, outer_radius, dist));
+    // Calculate zigzag offset using sine wave
+    let zigzag = sin(angle * num_edges) * zigzag_amplitude;
+
+    // Add time-based pulsing for extra dynamics
+    let pulse = sin(time * 3.0) * 0.02 * bass;
+
+    // Apply zigzag to center radius, then add/subtract thickness
+    // This maintains consistent ring width and prevents pinching
+    let center_radius = base_radius + zigzag + pulse;
+    let inner_radius = center_radius - thickness / 2.0;
+    let outer_radius = center_radius + thickness / 2.0;
+
+    // Create smooth ring mask (antialiased edges)
+    let smoothness = 0.01;
+    let ring_mask = smoothstep(inner_radius - smoothness, inner_radius + smoothness, dist) *
+                    (1.0 - smoothstep(outer_radius - smoothness, outer_radius + smoothness, dist));
 
     // Color the ring based on audio frequencies
     let ring_color = vec3<f32>(
