@@ -5,6 +5,7 @@ var<uniform> audio_data: vec4<f32>;
 struct VertexOutput {
     @builtin(position) position: vec4<f32>,
     @location(0) c: vec2<f32>, // Complex number (real, imaginary)
+    @location(1) pixel_size: f32, // Size of one pixel in complex plane
 };
 
 @vertex
@@ -32,9 +33,17 @@ fn vs_main(@builtin(vertex_index) vertex_index: u32) -> VertexOutput {
     // c = pos * scale + center
     let c = pos * zoom_scale + zoom_center;
     
+    // Calculate pixel size in complex plane
+    // pos ranges from -1 to 1 (width of 2 in clip space)
+    // We map this to zoom_scale * 2 in complex plane
+    // So one pixel = (zoom_scale * 2) / screen_width_in_pixels
+    // Approximating screen width as 1920 pixels
+    let pixel_size_complex = (zoom_scale * 2.0) / 1920.0;
+    
     var output: VertexOutput;
     output.position = vec4<f32>(pos, 0.0, 1.0);
     output.c = c;
+    output.pixel_size = pixel_size_complex;
     return output;
 }
 
@@ -56,10 +65,8 @@ fn magnitude_squared(z: vec2<f32>) -> f32 {
     return z.x * z.x + z.y * z.y;
 }
 
-@fragment
-fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
-    let c = input.c;  // Complex number from vertex shader
-
+// Calculate color for a single point in the Mandelbrot set
+fn mandelbrot_color(c: vec2<f32>) -> vec4<f32> {
     // Mandelbrot iteration
     var z = vec2<f32>(0.0, 0.0);  // Start at origin
     let max_iterations = 256u;
@@ -87,8 +94,26 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
         let log_zn = log(z_magnitude_squared) / 2.0;  // log(|z|) = log(sqrt(z²)) = log(z²)/2
         let smooth_iterations = f32(iterations) + 1.0 - log(log_zn) / log(2.0);
         
+        // Deep space color palette (dark blues/purples)
         let t = smooth_iterations / f32(max_iterations);
         
-        return vec4<f32>(t, t * 0.5, 1.0 - t, 1.0);
+        // Use multiple sine waves with different frequencies for depth
+        let s1 = sin(t * 3.14159);  // Half cycle
+        let s2 = sin(t * 6.28318);  // Full cycle
+        
+        // Dark blue to purple gradient
+        let r = s1 * 0.15 + s2 * 0.1;  // Dark red (0.0 - 0.25)
+        let g = s1 * 0.05 + 0.02;       // Very little green (0.0 - 0.07)
+        let b = s1 * 0.3 + s2 * 0.2 + 0.2;  // Dominant blue (0.2 - 0.7)
+        
+        return vec4<f32>(r, g, b, 1.0);
     }
+}
+
+@fragment
+fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
+    let c = input.c;  // Complex number from vertex shader (center of pixel)
+    
+    // No anti-aliasing - single sample per pixel
+    return mandelbrot_color(c);
 }
