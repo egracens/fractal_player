@@ -13,6 +13,11 @@ pub struct AppState {
     pub playback_pos_secs: f32,
     pub playback_duration_secs: f32,
 
+    pub visual_time: f64,
+
+    #[serde(skip)]
+    pub target_format: Option<wgpu::TextureFormat>,
+
     pub fractal_type: FractalType,
 
     #[serde(skip)]

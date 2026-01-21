@@ -16,13 +16,15 @@ pub struct JuliaResources {
 pub struct JuliaCallback {
     pub fft_data: SpectrogramBins,
     pub current_time: f64,
+    pub format: wgpu::TextureFormat,
 }
 
 impl JuliaCallback {
-    pub fn new(fft_data: SpectrogramBins, current_time: f64) -> Self {
+    pub fn new(fft_data: SpectrogramBins, current_time: f64, format: wgpu::TextureFormat) -> Self {
         Self {
             fft_data,
             current_time,
+            format,
         }
     }
 
@@ -58,6 +60,7 @@ impl JuliaCallback {
 
     fn prepare_shader(
         device: &wgpu::Device,
+        format: wgpu::TextureFormat,
     ) -> (
         Arc<wgpu::RenderPipeline>,
         Arc<wgpu::Buffer>,
@@ -117,7 +120,7 @@ impl JuliaCallback {
                 entry_point: Some("fs_main"),
                 compilation_options: Default::default(),
                 targets: &[Some(wgpu::ColorTargetState {
-                    format: wgpu::TextureFormat::Bgra8Unorm,
+                    format,
                     blend: Some(wgpu::BlendState::REPLACE),
                     write_mask: wgpu::ColorWrites::ALL,
                 })],
@@ -159,7 +162,7 @@ impl CallbackTrait for JuliaCallback {
         callback_resources: &mut CallbackResources,
     ) -> Vec<wgpu::CommandBuffer> {
         if !callback_resources.contains::<JuliaResources>() {
-            let (pipeline, uniform_buffer, bind_group) = Self::prepare_shader(device);
+            let (pipeline, uniform_buffer, bind_group) = Self::prepare_shader(device, self.format);
             callback_resources.insert(JuliaResources {
                 pipeline,
                 uniform_buffer,

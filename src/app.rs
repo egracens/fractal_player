@@ -16,6 +16,10 @@ impl FractalPlayer {
         let mut state: AppState = AppState::restore(cc.storage);
         state.init_runtime_fields();
 
+        if let Some(render_state) = &cc.wgpu_render_state {
+            state.target_format = Some(render_state.target_format);
+        }
+
         let mut audio = AudioManager::new(state.last_file.clone());
         audio.spawn_playback_thread();
 
@@ -42,6 +46,11 @@ impl eframe::App for FractalPlayer {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         const PROGRESS_FPS: u64 = 144;
         const PROGRESS_FRAME_MS: u64 = 1000 / PROGRESS_FPS;
+
+        // Update visual accumulator clock
+        if self.state.is_playing {
+            self.state.visual_time += ctx.input(|i| i.stable_dt) as f64;
+        }
 
         let mut actions = UiActions::default();
 

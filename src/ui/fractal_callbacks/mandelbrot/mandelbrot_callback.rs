@@ -16,13 +16,15 @@ pub struct MandelbrotResources {
 pub struct MandelbrotCallback {
     pub fft_data: SpectrogramBins,
     pub current_time: f64,
+    pub format: wgpu::TextureFormat,
 }
 
 impl MandelbrotCallback {
-    pub fn new(fft_data: SpectrogramBins, current_time: f64) -> Self {
+    pub fn new(fft_data: SpectrogramBins, current_time: f64, format: wgpu::TextureFormat) -> Self {
         Self {
             fft_data,
             current_time,
+            format,
         }
     }
 
@@ -76,6 +78,7 @@ impl MandelbrotCallback {
 
     fn prepare_shader(
         device: &wgpu::Device,
+        format: wgpu::TextureFormat,
     ) -> (
         Arc<wgpu::RenderPipeline>,
         Arc<wgpu::Buffer>,
@@ -135,7 +138,7 @@ impl MandelbrotCallback {
                 entry_point: Some("fs_main"),
                 compilation_options: Default::default(),
                 targets: &[Some(wgpu::ColorTargetState {
-                    format: wgpu::TextureFormat::Bgra8Unorm,
+                    format, // Dynamic!
                     blend: Some(wgpu::BlendState::REPLACE),
                     write_mask: wgpu::ColorWrites::ALL,
                 })],
@@ -177,7 +180,7 @@ impl CallbackTrait for MandelbrotCallback {
         callback_resources: &mut CallbackResources,
     ) -> Vec<wgpu::CommandBuffer> {
         if !callback_resources.contains::<MandelbrotResources>() {
-            let (pipeline, uniform_buffer, bind_group) = Self::prepare_shader(device);
+            let (pipeline, uniform_buffer, bind_group) = Self::prepare_shader(device, self.format);
 
             let resources = MandelbrotResources {
                 pipeline,

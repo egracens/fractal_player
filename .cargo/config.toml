@@ -1,0 +1,2 @@
+[env]
+GALLIUM_DRIVER = "d3d12"

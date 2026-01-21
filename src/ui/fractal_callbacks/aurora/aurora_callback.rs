@@ -19,13 +19,15 @@ pub struct AuroraResources {
 pub struct AuroraCallback {
     pub fft_data: SpectrogramBins,
     pub current_time: f64,
+    pub format: wgpu::TextureFormat,
 }
 
 impl AuroraCallback {
-    pub fn new(fft_data: SpectrogramBins, current_time: f64) -> Self {
+    pub fn new(fft_data: SpectrogramBins, current_time: f64, format: wgpu::TextureFormat) -> Self {
         Self {
             fft_data,
             current_time,
+            format,
         }
     }
 
@@ -34,14 +36,11 @@ impl AuroraCallback {
         let sample_rate = fft_data.sample_rate_hz as f32;
         let num_bins = bins.len();
 
-        // Calculate Nyquist frequency (half the sample rate)
         let nyquist = sample_rate / 2.0;
 
-        // Helper to convert frequency (Hz) to bin index
         let freq_to_bin =
             |freq: f32| -> usize { ((freq * num_bins as f32) / nyquist).floor() as usize };
 
-        // Helper to average bins in a range
         let average_bins = |start: usize, end: usize| -> f32 {
             let start = start.min(num_bins);
             let end = end.min(num_bins);
@@ -52,16 +51,12 @@ impl AuroraCallback {
             sum / (end - start) as f32
         };
 
-        // Proper frequency ranges based on musical perception
-        // Bass: 20-250 Hz (sub-bass + bass fundamentals)
         let bass_start = freq_to_bin(20.0);
         let bass_end = freq_to_bin(250.0);
 
-        // Mids: 250-2000 Hz (fundamentals + lower harmonics)
         let mid_start = bass_end;
         let mid_end = freq_to_bin(2000.0);
 
-        // Highs: 2000-20000 Hz (upper harmonics + presence)
         let high_start = mid_end;
         let high_end = freq_to_bin(20000.0);
 
@@ -69,9 +64,6 @@ impl AuroraCallback {
         let mids = average_bins(mid_start, mid_end);
         let highs = average_bins(high_start, high_end);
 
-        // Normalize and boost
-        // Bass has more energy naturally, so less boost needed
-        // Highs have less energy, so more boost needed
         [
             (bass * 2.0).clamp(0.0, 1.0),
             (mids * 3.0).clamp(0.0, 1.0),
@@ -89,6 +81,7 @@ impl AuroraCallback {
         pipeline_label: &str,
         pipeline_layout_label: &str,
         blend_state: Option<wgpu::BlendState>,
+        format: wgpu::TextureFormat,
     ) -> (
         Arc<wgpu::RenderPipeline>,
         Arc<wgpu::Buffer>,
@@ -148,7 +141,7 @@ impl AuroraCallback {
                 entry_point: Some("fs_main"),
                 compilation_options: Default::default(),
                 targets: &[Some(wgpu::ColorTargetState {
-                    format: wgpu::TextureFormat::Bgra8Unorm,
+                    format, // Dynamic format!
                     blend: blend_state,
                     write_mask: wgpu::ColorWrites::ALL,
                 })],
@@ -201,6 +194,7 @@ impl CallbackTrait for AuroraCallback {
                     "Aurora Background Pipeline",
                     "Aurora Background Pipeline Layout",
                     Some(wgpu::BlendState::REPLACE),
+                    self.format,
                 );
 
             let (ring_pipeline, ring_uniform_buffer, ring_bind_group) = Self::prepare_shader(
@@ -224,6 +218,7 @@ impl CallbackTrait for AuroraCallback {
                         operation: wgpu::BlendOperation::Add,
                     },
                 }),
+                self.format,
             );
 
             let resources = AuroraResources {

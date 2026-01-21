@@ -36,13 +36,15 @@ pub struct TriangleResources {
 pub struct TriangleCallback {
     pub fft_data: SpectrogramBins,
     pub current_time: f64,
+    pub format: wgpu::TextureFormat,
 }
 
 impl TriangleCallback {
-    pub fn new(fft_data: SpectrogramBins, current_time: f64) -> Self {
+    pub fn new(fft_data: SpectrogramBins, current_time: f64, format: wgpu::TextureFormat) -> Self {
         Self {
             fft_data,
             current_time,
+            format,
         }
     }
 
@@ -144,7 +146,7 @@ impl CallbackTrait for TriangleCallback {
                     entry_point: Some("fs_main"),
                     compilation_options: Default::default(),
                     targets: &[Some(wgpu::ColorTargetState {
-                        format: wgpu::TextureFormat::Bgra8Unorm,
+                        format: self.format, // Dynamic format!
                         blend: Some(wgpu::BlendState::REPLACE),
                         write_mask: wgpu::ColorWrites::ALL,
                     })],

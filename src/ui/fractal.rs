@@ -27,7 +27,7 @@ impl View for Fractal {
 }
 
 impl Fractal {
-    fn draw_fractal(&self, ctx: &Context, ui: &mut Ui, state: &AppState, actions: &mut UiActions) {
+    fn draw_fractal(&self, _ctx: &Context, ui: &mut Ui, state: &AppState, actions: &mut UiActions) {
         ui.horizontal(|ui| {
             ui.label("Fractal Type:");
 
@@ -62,25 +62,29 @@ impl Fractal {
             SpectrogramBins::default()
         };
 
-        let current_time = ctx.input(|i| i.time);
+        let current_time = state.visual_time;
+
+        let target_format = state
+            .target_format
+            .unwrap_or(wgpu::TextureFormat::Bgra8Unorm);
 
         // Create callback based on selected fractal type
         let callback = match state.fractal_type {
             FractalType::Triangle => eframe::egui_wgpu::Callback::new_paint_callback(
                 canvas_rect,
-                TriangleCallback::new(fft_data, current_time),
+                TriangleCallback::new(fft_data, current_time, target_format),
             ),
             FractalType::Aurora => eframe::egui_wgpu::Callback::new_paint_callback(
                 canvas_rect,
-                AuroraCallback::new(fft_data, current_time),
+                AuroraCallback::new(fft_data, current_time, target_format),
             ),
             FractalType::Mandelbrot => eframe::egui_wgpu::Callback::new_paint_callback(
                 canvas_rect,
-                MandelbrotCallback::new(fft_data, current_time),
+                MandelbrotCallback::new(fft_data, current_time, target_format),
             ),
             FractalType::Julia => eframe::egui_wgpu::Callback::new_paint_callback(
                 canvas_rect,
-                JuliaCallback::new(fft_data, current_time),
+                JuliaCallback::new(fft_data, current_time, target_format),
             ),
         };
 
