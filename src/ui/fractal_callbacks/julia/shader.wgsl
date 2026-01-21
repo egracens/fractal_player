@@ -32,12 +32,20 @@ fn complex_mul(a: vec2<f32>, b: vec2<f32>) -> vec2<f32> {
 }
 
 fn get_animated_c(time: f32) -> vec2<f32> {
+    // Famous Julia set points:
+    // - Golden Fractal: anchor_x = -0.4, anchor_y = 0.6
+    // - Dendrite:       anchor_x = 0.0, anchor_y = 1.0
+    // - San Marco:      anchor_x = -0.75, anchor_y = 0.0
+    // - Douady's Rabbit: anchor_x = -0.123, anchor_y = 0.745
+    // - Classic Spiral: anchor_x = -0.8, anchor_y = 0.156
+    // - Siegel Disk:    anchor_x = -0.391, anchor_y = -0.587
+    
     let anchor_x = -0.8;
     let anchor_y = 0.156;
-    let movement_range = 0.15;
+    let movement_range = 0.05;
     
-    let speed_x = 0.2;
-    let speed_y = 0.4;
+    let speed_x = 0.5;
+    let speed_y = 0.7;
     
     return vec2<f32>(
         anchor_x + cos(time * speed_x) * movement_range,
@@ -45,10 +53,7 @@ fn get_animated_c(time: f32) -> vec2<f32> {
     );
 }
 
-fn spin(uv: vec2<f32>, time: f32) -> vec2<f32> {
-    let rotation_speed = 0.1;
-    let angle = time * rotation_speed;
-    
+fn spin(uv: vec2<f32>, angle: f32) -> vec2<f32> {
     let cos_a = cos(angle);
     let sin_a = sin(angle);
     
@@ -58,27 +63,8 @@ fn spin(uv: vec2<f32>, time: f32) -> vec2<f32> {
     );
 }
 
-fn zoom(uv: vec2<f32>, level: f32) -> vec2<f32> {
-    return uv * level;
-}
-
-@fragment
-fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
-    let time = audio_data.w;
-    
-    let c = get_animated_c(time);
-    
-    let rotated_uv = spin(input.uv, time);
-    let view_scale = 1.5;
-    let z_start = zoom(rotated_uv, view_scale);
-    
-    let result = iterate_julia(z_start, c);
-    
-    if (result.iterations == result.max_iterations) {
-        return paint_attracted(result, time);
-    } else {
-        return paint_escaped(result, time);
-    }
+fn zoom(uv: vec2<f32>, factor: f32) -> vec2<f32> {
+    return uv * factor;
 }
 
 fn iterate_julia(z_start: vec2<f32>, c: vec2<f32>) -> JuliaResult {
@@ -98,10 +84,12 @@ fn iterate_julia(z_start: vec2<f32>, c: vec2<f32>) -> JuliaResult {
 
 fn paint_attracted(res: JuliaResult, time: f32) -> vec4<f32> {
     let dist = length(res.final_z);
-    let r = sin(dist * 10.0 + time) * 0.1 + 0.1;
-    let g = sin(dist * 15.0 + time * 0.7) * 0.05 + 0.05;
-    let b = sin(dist * 5.0 + time * 0.5) * 0.2 + 0.1;
-    return vec4<f32>(r, g, b, 1.0);
+    
+    let r = sin(dist * 5.0 + time) * 0.4 + 0.5;
+    let g = sin(dist * 8.0 + time * 0.7) * 0.3 + 0.4;
+    let b = sin(dist * 3.0 + time * 0.5) * 0.5 + 0.5;
+    
+    return vec4<f32>(r * 0.3, g * 0.2, b * 0.6, 1.0);
 }
 
 fn paint_escaped(res: JuliaResult, time: f32) -> vec4<f32> {
@@ -113,4 +101,25 @@ fn paint_escaped(res: JuliaResult, time: f32) -> vec4<f32> {
     let g = sin(t * 10.0 + time * 0.7 + 2.0) * 0.5 + 0.5;
     let b = sin(t * 10.0 + time * 0.5 + 4.0) * 0.5 + 0.5;
     return vec4<f32>(r, g, b, 1.0);
+}
+
+@fragment
+fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
+    let time = audio_data.w;
+    
+    let c = get_animated_c(time);
+    
+    let angle = time * 0.1;
+    let rotated_uv = spin(input.uv, angle);
+    
+    let factor = 1.3;
+    let z_start = zoom(rotated_uv, factor);
+    
+    let result = iterate_julia(z_start, c);
+    
+    if (result.iterations == result.max_iterations) {
+        return paint_attracted(result, time);
+    } else {
+        return paint_escaped(result, time);
+    }
 }
