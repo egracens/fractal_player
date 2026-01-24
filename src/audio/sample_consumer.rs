@@ -1,7 +1,8 @@
 use std::time::Duration;
 
-use rodio::Source;
 use rodio::cpal::Sample;
+use rodio::source::SeekError;
+use rodio::Source;
 
 pub trait SampleProducer: Send {
     type Sample: Sample;
@@ -10,6 +11,7 @@ pub trait SampleProducer: Send {
     fn channels(&self) -> u16;
     fn sample_rate(&self) -> u32;
     fn total_duration(&self) -> Option<Duration>;
+    fn try_seek(&mut self, pos: Duration) -> Result<(), SeekError>;
 }
 
 impl<T> SampleProducer for T
@@ -34,9 +36,14 @@ where
     fn total_duration(&self) -> Option<Duration> {
         Source::total_duration(self)
     }
+
+    fn try_seek(&mut self, pos: Duration) -> Result<(), SeekError> {
+        self.try_seek(pos)
+    }
 }
 
 pub trait SampleConsumer: Send {
     fn on_sample(&mut self, sample: f32);
     fn on_state_change(&mut self, _is_playing: bool) {}
+    fn on_seek(&mut self, _seek_time_secs: f64) {}
 }

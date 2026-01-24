@@ -47,6 +47,7 @@ impl AudioWorker {
             AudioCommand::Play => self.play(),
             AudioCommand::Pause => self.pause(),
             AudioCommand::Stop => self.stop(),
+            AudioCommand::Seek(pos) => self.seek(pos),
             AudioCommand::Terminate => self.terminate(),
         }
     }
@@ -96,19 +97,48 @@ impl AudioWorker {
         }
     }
 
+    fn seek(&mut self, pos_secs: f64) {
+        let time = Duration::from_secs_f64(pos_secs);
+
+        if self.try_seek_active_sink(time) {
+            return;
+        }
+
+        self.reload_track_at(time);
+    }
+
+    fn try_seek_active_sink(&mut self, time: Duration) -> bool {
+        if let Some(sink) = self.sink.as_mut() {
+            if !sink.empty() {
+                return sink.try_seek(time).is_ok();
+            }
+        }
+        false
+    }
+
+    fn reload_track_at(&mut self, time: Duration) {
+        if let Some(track) = self.current_track.clone() {
+            let (new_sink, _) = self.load_sink_at_position(&track, time);
+            self.sink = new_sink;
+        }
+    }
+
     fn terminate(&mut self) {
         if let Some(s) = self.sink.take() {
             s.stop();
         }
     }
 
-    fn load_sink_at_position(
-        &mut self,
-        track: &str,
-        _pos: Duration,
-    ) -> (Option<Sink>, Option<f64>) {
+    fn load_sink_at_position(&mut self, track: &str, pos: Duration) -> (Option<Sink>, Option<f64>) {
         match self.load_sink(track) {
-            Ok((sink, dur_opt)) => (Some(sink), dur_opt),
+            Ok((sink, dur_opt)) => {
+                if pos > Duration::ZERO {
+                    if let Err(e) = sink.try_seek(pos) {
+                        log::warn!("audio: failed to seek to {pos:?} after reload: {e}");
+                    }
+                }
+                (Some(sink), dur_opt)
+            }
             Err(err) => {
                 log::warn!("audio: failed to reset {track}: {err}");
                 (None, None)

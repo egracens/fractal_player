@@ -26,6 +26,7 @@ pub enum UiEvent {
     Play,
     Pause,
     Stop,
+    Seek(f32),
     ChangeFractal(FractalType),
 }
 

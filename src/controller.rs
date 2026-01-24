@@ -17,6 +17,7 @@ impl<'a> Controller<'a> {
                 crate::ui::UiEvent::Play => self.play(),
                 crate::ui::UiEvent::Pause => self.pause(),
                 crate::ui::UiEvent::Stop => self.stop(),
+                crate::ui::UiEvent::Seek(pos) => self.seek(pos),
                 crate::ui::UiEvent::ChangeFractal(fractal_type) => {
                     self.state.fractal_type = fractal_type;
                 }
@@ -52,6 +53,14 @@ impl<'a> Controller<'a> {
         }
         self.state.request_stop();
         self.audio.stop();
+    }
+
+    pub fn seek(&mut self, pos_secs: f32) {
+        if !self.state.has_audio_file() {
+            return;
+        }
+
+        self.audio.seek(pos_secs as f64);
     }
 
     pub fn poll_playback_progress(&mut self) {

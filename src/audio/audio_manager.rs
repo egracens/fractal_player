@@ -67,6 +67,10 @@ impl AudioManager {
         let _ = self.cmd_tx.send(AudioCommand::Stop);
     }
 
+    pub fn seek(&self, seconds: f64) {
+        let _ = self.cmd_tx.send(AudioCommand::Seek(seconds));
+    }
+
     pub fn progress(&self) -> &Receiver<PlaybackSnapshot> {
         &self.progress_rx
     }

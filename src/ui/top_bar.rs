@@ -2,7 +2,7 @@ use egui::Context;
 
 use crate::app_state::AppState;
 
-use super::{UiActions, UiEvent, View, helpers::pick_file_dialog};
+use super::{helpers::pick_file_dialog, UiActions, UiEvent, View};
 
 pub struct TopBar;
 

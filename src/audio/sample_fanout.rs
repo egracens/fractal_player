@@ -1,8 +1,9 @@
 use std::time::Duration;
 
 use flume::Receiver;
-use rodio::Source;
 use rodio::cpal::Sample;
+use rodio::source::SeekError;
+use rodio::Source;
 
 use crate::audio::{SampleConsumer, SampleProducer};
 
@@ -98,5 +99,14 @@ where
 
     fn total_duration(&self) -> Option<Duration> {
         self.inner.total_duration()
+    }
+
+    fn try_seek(&mut self, pos: Duration) -> Result<(), SeekError> {
+        self.inner.try_seek(pos)?;
+        let secs = pos.as_secs_f64();
+        for consumer in self.consumers.iter_mut() {
+            consumer.on_seek(secs);
+        }
+        Ok(())
     }
 }

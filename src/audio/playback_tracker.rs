@@ -51,4 +51,9 @@ impl SampleConsumer for PlaybackTracker {
     fn on_state_change(&mut self, is_playing: bool) {
         self.send_snapshot(is_playing);
     }
+
+    fn on_seek(&mut self, seek_time_secs: f64) {
+        self.frames_count_tracked = (seek_time_secs * self.sample_rate as f64).round() as u64;
+        self.send_snapshot(true);
+    }
 }

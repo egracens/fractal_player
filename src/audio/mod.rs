@@ -17,6 +17,7 @@ pub enum AudioCommand {
     Play,
     Pause,
     Stop,
+    Seek(f64),
     Terminate,
 }
 

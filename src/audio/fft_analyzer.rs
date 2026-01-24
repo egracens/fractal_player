@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use rustfft::{Fft, FftPlanner, num_complex::Complex};
+use rustfft::{num_complex::Complex, Fft, FftPlanner};
 
 pub const SPECTROGRAM_BINS: usize = 256;
 

@@ -2,7 +2,7 @@ use egui::Context;
 
 use crate::app_state::AppState;
 
-use super::{UiActions, UiEvent, View, helpers::pick_file_dialog};
+use super::{helpers::pick_file_dialog, UiActions, UiEvent, View};
 
 pub struct PlayerControls;
 
@@ -61,14 +61,17 @@ impl View for PlayerControls {
 
             ui.add_space(8.0);
             ui.horizontal(|ui| {
-                let dur = state.playback_duration_secs.max(0.001);
-                let frac = (state.playback_pos_secs / dur).clamp(0.0, 1.0);
+                let dur = state.playback_duration_secs.max(0.1);
+                let mut pos = state.playback_pos_secs;
+
                 ui.label("Progress:");
-                ui.add(
-                    egui::ProgressBar::new(frac)
-                        .show_percentage()
-                        .desired_width(200.0),
-                );
+                ui.style_mut().spacing.slider_width = 200.0;
+                let slider = ui.add(egui::Slider::new(&mut pos, 0.0..=dur).show_value(false));
+
+                if slider.changed() {
+                    actions.events.push(UiEvent::Seek(pos));
+                }
+
                 ui.label(format!(
                     "{:.1}s / {:.1}s",
                     state.playback_pos_secs, state.playback_duration_secs
